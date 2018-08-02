@@ -1,0 +1,17 @@
+# JetBrains stuff
+/.idea/
+*.ipr
+*.iml
+
+# Compilation output
+/target/
+/build/
+/out/
+
+# Gradle stuff
+/.gradle/
+
+# It's a secret to everybody
+*.gb
+*.gbc
+*.gba
