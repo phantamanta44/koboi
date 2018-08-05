@@ -21,11 +21,27 @@ repositories {
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile group: 'com.xenomachina', name: 'kotlin-argparser', version: '2.0.7'
+    compile 'org.jogamp.gluegen:gluegen-rt:2.3.2'
+    compile 'org.jogamp.jogl:jogl-all:2.3.2'
+
+    def os = System.getProperty("os.name").toLowerCase()
+    if (os.contains("windows")) {
+        os = "windows"
+    } else if (os.contains("osx") || os.contains("macos")) {
+        os = "macosx"
+    } else if (os.contains("linux")) {
+        os = "linux"
+    } else if (os.contains("solaris")) {
+        os = "solaris"
+    }
+    def arch = System.getProperty("os.arch")
+    compile "org.jogamp.gluegen:gluegen-rt:2.3.2:natives-$os-$arch"
+    compile "org.jogamp.jogl:jogl-all:2.3.2:natives-$os-$arch"
 }
 
 compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = '1.8'
 }
 compileTestKotlin {
-    kotlinOptions.jvmTarget = "1.8"
+    kotlinOptions.jvmTarget = '1.8'
 }

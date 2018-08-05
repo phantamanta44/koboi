@@ -30,9 +30,9 @@ interface IMemoryArea {
 
 interface IMemoryRange {
 
-    operator fun get(index: Int): Byte
-
     val length: Int
+
+    operator fun get(index: Int): Byte
 
     fun toArray(): ByteArray
 

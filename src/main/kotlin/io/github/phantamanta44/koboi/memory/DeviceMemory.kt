@@ -1,46 +1,7 @@
 package io.github.phantamanta44.koboi.memory
 
-class MasterMemoryArea(private val mainMemory: IMemoryArea, private val bootrom: ByteArray) : IMemoryArea {
-
-    override val length: Int
-        get() = mainMemory.length
-
-    private var bootromActive: Boolean = true
-
-    override fun read(addr: Int): Byte {
-        return if (bootromActive && addr < bootrom.size) bootrom[addr] else mainMemory.read(addr)
-    }
-
-    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange {
-        return MMARange(firstAddr, lastAddr)
-    }
-
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        if (bootromActive) {
-            // assumes that writes only occur entirely within bootrom or entirely outside
-            if (addr < bootrom.size) {
-                System.arraycopy(values, start, bootrom, addr, length)
-                return
-            } else if (addr == 0xFF50) {
-                // assumes this address is only written to if we're disabling the bootrom
-                bootromActive = false
-            }
-        }
-        mainMemory.write(addr, *values, start = start, length = length)
-    }
-
-    private inner class MMARange(val first: Int, val last: Int) : IMemoryRange {
-
-        override fun get(index: Int): Byte = read(first + index)
-
-        override fun toArray(): ByteArray = ByteArray(length, { get(it) }) // FIXME god is this inefficient
-
-        override val length: Int
-            get() = last - first
-
-    }
-
-}
+import io.github.phantamanta44.koboi.cpu.Timer
+import io.github.phantamanta44.koboi.game.GameEngine
 
 class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : IMemoryArea {
 
@@ -60,6 +21,52 @@ class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, over
 
         override fun toArray(): ByteArray = rom.copyOfRange(start + first, start + last)
 
+    }
+
+}
+
+class InterruptRegister : BitwiseRegister() {
+
+    var vBlank: Boolean by delegateBit(0)
+
+    var lcdStat: Boolean by delegateBit(1)
+
+    var timer: Boolean by delegateBit(2)
+
+    var serial: Boolean by delegateBit(3)
+
+    var joypad: Boolean by delegateBit(4)
+
+}
+
+class ClockSpeedRegister : BitwiseRegister(0b00000001) {
+
+    var doubleSpeed: Boolean by delegateBit(7)
+
+    var prepareSpeedSwitch: Boolean by delegateBit(0)
+
+}
+
+class TimerControlRegister(private val gameEngine: GameEngine) : BitwiseRegister() {
+
+    var timerEnabled: Boolean by delegateBit(2)
+
+    var clockUpper: Boolean by delegateBit(1)
+
+    var clockLower: Boolean by delegateBit(0)
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+        super.write(addr, *values, start = start, length = length)
+        gameEngine.clock.tickRate = when (clockUpper) {
+            false -> when (clockLower) {
+                false -> Timer.TimerTickRate.R_4096_HZ
+                true -> Timer.TimerTickRate.R_262144_HZ
+            }
+            true -> when (clockLower) {
+                false -> Timer.TimerTickRate.R_65536_HZ
+                true -> Timer.TimerTickRate.R_16384_HZ
+            }
+        }
     }
 
 }

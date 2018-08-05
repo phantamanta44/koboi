@@ -1,6 +1,5 @@
 package io.github.phantamanta44.koboi.cpu
 
-import io.github.phantamanta44.koboi.memory.IMemoryArea
 import io.github.phantamanta44.koboi.util.cons
 import io.github.phantamanta44.koboi.util.getHighByte
 import io.github.phantamanta44.koboi.util.getLowByte
@@ -82,32 +81,6 @@ class SingleShortRegister(private var value: Short = 0) : IRegister<Short> {
         var newValue = value - offset
         while (newValue < 0) newValue += 65536
         write(newValue.toShort())
-    }
-
-}
-
-class MemoryBitRegister(val memory: IMemoryArea, val addr: Int) : IRegister<Byte> {
-
-    var flag: Boolean
-        get() = memory.read(0) != 0.toByte()
-        set(value) {
-            memory.write(addr, (if (value) 1 else 0).toByte())
-        }
-
-    override fun read(): Byte {
-        return memory.read(addr)
-    }
-
-    override fun write(value: Byte) {
-        memory.write(addr, value)
-    }
-
-    override fun increment(offset: Int) {
-        write((read() + offset).toByte())
-    }
-
-    override fun decrement(offset: Int) {
-        write((read() - offset).toByte())
     }
 
 }

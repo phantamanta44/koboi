@@ -6,7 +6,7 @@ import io.github.phantamanta44.koboi.game.GameEngine
 import io.github.phantamanta44.koboi.memory.IMemoryRange
 import java.io.PrintStream
 
-class DebugShell(val engine: GameEngine) {
+class DebugShell(private val engine: GameEngine) {
 
     fun begin() {
         Thread.sleep(500) // deals with annoying issue where stderr stack trace covers stuff up
@@ -45,6 +45,17 @@ class DebugShell(val engine: GameEngine) {
                             if (cmd.size == 2) {
                                 try {
                                     println(mnemonics[cmd[1].toInt(16)])
+                                } catch (e: NumberFormatException) {
+                                    println("? hex format")
+                                }
+                            } else {
+                                println("? arg count")
+                            }
+                        }
+                        "h2b" -> {
+                            if (cmd.size == 2) {
+                                try {
+                                    println(cmd[1].toInt(16).toString(2))
                                 } catch (e: NumberFormatException) {
                                     println("? hex format")
                                 }

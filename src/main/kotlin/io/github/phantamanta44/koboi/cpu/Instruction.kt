@@ -1,6 +1,5 @@
 package io.github.phantamanta44.koboi.cpu
 
-import io.github.phantamanta44.koboi.Loggr
 import io.github.phantamanta44.koboi.util.*
 import kotlin.reflect.KMutableProperty1
 
@@ -158,8 +157,8 @@ fun decRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
         val final = regInstance.read().toInt()
         it.regF.kZ = final == 0
         it.regF.kN = true
-        it.regF.kH = initial and 0xF0 != final and 0xF0
-        it.regF.kC = initial - offset < 0
+        it.regF.kH = initial and 0xF0 == final and 0xF0
+        it.regF.kC = initial - offset >= 0
     }
 }
 
@@ -298,14 +297,14 @@ fun akkuOr(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
 
 fun akkuCp(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.advance()
-    val offset = operand(it)
+    val offset = operand(it).toUnsignedInt()
     val initial = it.regA.read().toUnsignedInt()
     var final = initial - offset
     while (final < 0) final += 256
     it.regF.kZ = final == 0
     it.regF.kN = true
-    it.regF.kH = initial and 0xF0 != final and 0xF0
-    it.regF.kC = initial - offset < 0
+    it.regF.kH = initial and 0xF0 == final and 0xF0
+    it.regF.kC = initial - offset >= 0
 }
 
 // Flags
@@ -322,12 +321,12 @@ fun flagFlip(flag: KMutableProperty1<FlagRegister, Boolean>): (Cpu) -> Unit = {
 
 val imeOn: (Cpu) -> Unit = {
     it.advance()
-    it.regIME.flag = true
+    it.flagIME = true
 }
 
 val imeOff: (Cpu) -> Unit = {
     it.advance()
-    it.regIME.flag = false
+    it.flagIME = false
 }
 
 // Jumps
@@ -351,7 +350,7 @@ fun stackPush(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
 }
 
 fun stackPop(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
-    it.stackPop();
+    it.stackPop()
     it.advance()
     register(it).write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)

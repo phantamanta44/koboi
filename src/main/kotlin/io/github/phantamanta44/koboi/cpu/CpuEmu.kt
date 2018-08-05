@@ -2,13 +2,19 @@ package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.KoboiConfig
 import io.github.phantamanta44.koboi.Loggr
+import io.github.phantamanta44.koboi.memory.ClockSpeedRegister
 import io.github.phantamanta44.koboi.memory.IMemoryArea
+import io.github.phantamanta44.koboi.memory.InterruptRegister
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.PrintStream
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.reflect.KMutableProperty1
 import kotlin.system.measureNanoTime
 
-class Cpu(val memory: IMemoryArea) {
+class Cpu(val memory: IMemoryArea,
+          val memIntReq: InterruptRegister, private val memIntEnable: InterruptRegister,
+          private val memClockSpeed: ClockSpeedRegister) {
 
     val regA: IRegister<Byte> = SingleByteRegister()
     val regF: FlagRegister = FlagRegister()
@@ -20,17 +26,18 @@ class Cpu(val memory: IMemoryArea) {
     val regL: IRegister<Byte> = SingleByteRegister()
     val regSP: IRegister<Short> = SingleShortRegister()
     val regPC: IRegister<Short> = SingleShortRegister()
-    val regIME: MemoryBitRegister = MemoryBitRegister(memory, 0xFFFF)
+    var flagIME: Boolean = false
 
     val regAF: IRegister<Short> = RegisterPair(regA, regF)
     val regBC: IRegister<Short> = RegisterPair(regB, regC)
     val regDE: IRegister<Short> = RegisterPair(regD, regE)
     val regHL: IRegister<Short> = RegisterPair(regH, regL)
 
-    var alive: Boolean = true
+    var alive: AtomicBoolean = AtomicBoolean(true)
+    var doubleClock: Boolean = false
 
     private var cycleDuration: Long = 238
-    private var cycleTime: Long = 0
+    private var idleCycles: Int = 0
     private var stackCounter: Int = 0
 
     fun readByte(): Byte = memory.read(regPC.read().toUnsignedInt())
@@ -52,7 +59,7 @@ class Cpu(val memory: IMemoryArea) {
     fun advance(offset: Int = 1) = regPC.increment(offset)
 
     fun idle(cycles: Int) {
-        cycleTime = cycles * cycleDuration
+        idleCycles += cycles
     }
 
     fun stackPush() {
@@ -64,22 +71,42 @@ class Cpu(val memory: IMemoryArea) {
     }
 
     fun cycle() {
+        val sleepNanos = cycleDuration - measureNanoTime {
+            cycle0()
+            if (doubleClock) cycle0()
+        }
+        if (sleepNanos > 0) {
+            val sleepMillis = Math.floor(sleepNanos / 1000000.0).toLong()
+            Thread.sleep(sleepMillis, (sleepNanos - sleepMillis * 1000000).toInt())
+        } else {
+//            Loggr.trace("Going too slow! $sleepNanos ns cycle duration difference")
+        }
+    }
+
+    private fun cycle0() {
         try {
-            val sleepNanos = cycleTime - measureNanoTime {
-                val opcode = readByte()
-                Loggr.trace("$${regPC.read().toUnsignedHex()} - ${opcode.toUnsignedHex()} :: ${mnemonics[opcode.toUnsignedInt()]}")
-                val op = Opcodes[opcode]
-                if (op == null) {
-                    throw UnknownOpcodeException(opcode)
-                } else {
-                    op(this)
+            var doCycle = true
+            if (flagIME) {
+                for (interrupt in InterruptType.values()) {
+                    if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
+                        interrupt(interrupt)
+                        doCycle = false
+                    }
                 }
             }
-            if (sleepNanos > 0) {
-                val sleepMillis = Math.floor(sleepNanos / 1000000.0).toLong()
-                Thread.sleep(sleepMillis, (sleepNanos - sleepMillis * 1000000).toInt())
-            } else {
-//            Loggr.trace("Going too slow! $sleepNanos ns cycle duration difference")
+            if (doCycle) {
+                if (idleCycles > 0) {
+                    --idleCycles
+                } else {
+                    val opcode = readByte()
+                    Loggr.trace("$${regPC.read().toUnsignedHex()} - ${opcode.toUnsignedHex()} :: ${mnemonics[opcode.toUnsignedInt()]}")
+                    val op = Opcodes[opcode]
+                    if (op == null) {
+                        throw UnknownOpcodeException(opcode)
+                    } else {
+                        op(this)
+                    }
+                }
             }
         } catch (e: Exception) {
             except(e)
@@ -87,16 +114,26 @@ class Cpu(val memory: IMemoryArea) {
     }
 
     fun stop() {
-
+        if (memClockSpeed.prepareSpeedSwitch) {
+            memClockSpeed.doubleSpeed = true
+            doubleClock = true
+            cycleDuration /= 2
+        }
         // TODO wait for joypad input
     }
 
     fun halt() {
-        TODO("not implemented")
+        TODO("wait for interrupt")
+    }
+
+    private fun interrupt(interrupt: InterruptType) {
+        interrupt.flag.set(memIntReq, false)
+        interrupt.flag.set(memIntEnable, false)
+        stackCall({ interrupt.vector })(this)
     }
 
     private fun except(e: Exception) {
-        alive = false
+        alive.set(false)
         throw EmulationException(this, e)
     }
 
@@ -119,6 +156,8 @@ class EmulationException(val cpu: Cpu, cause: Exception) : Exception("Exception 
     }
 
     fun printCpuState(out: PrintStream = System.err) {
+        out.println("===== CPU STATE =====")
+        out.println("IME flag = ${cpu.flagIME}")
         out.println("===== REGISTER STATES =====")
         printRegisterState8(out, cpu.regA, "A")
         printRegisterState8(out, cpu.regF, "F")
@@ -140,6 +179,16 @@ class EmulationException(val cpu: Cpu, cause: Exception) : Exception("Exception 
 
         }
     }
+
+}
+
+enum class InterruptType(val flag: KMutableProperty1<InterruptRegister, Boolean>, val vector: Short) {
+
+    V_BLANK(InterruptRegister::vBlank, 0x40),
+    LCD_STAT(InterruptRegister::lcdStat, 0x48),
+    TIMER(InterruptRegister::timer, 0x50),
+    SERIAL(InterruptRegister::serial, 0x58),
+    JOYPAD(InterruptRegister::joypad, 0x60)
 
 }
 
