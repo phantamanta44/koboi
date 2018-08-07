@@ -18,6 +18,8 @@ class LcdControlRegister : BitwiseRegister() {
 
     var bgState: Boolean by delegateBit(0)
 
+    override fun typeAt(addr: Int): String = "LcdControl"
+
 }
 
 class LcdStatusRegister : BitwiseRegister(0b01111100) {
@@ -35,5 +37,71 @@ class LcdStatusRegister : BitwiseRegister(0b01111100) {
     var modeUpper: Boolean by delegateBit(1)
 
     var modeLower: Boolean by delegateBit(0)
+
+    override fun typeAt(addr: Int): String = "LcdStatus"
+
+}
+
+class ColourPaletteSwicher {
+
+    private val memory: ByteArray = ByteArray(64)
+    private var active: Int = 0
+
+    val controlMemory: PaletteControlRegister = PaletteControlRegister()
+    val accessMemory: PaletteAccessRegister = PaletteAccessRegister()
+
+    fun getColours(palette: Int, colour: Int): Triple<Int, Int, Int> {
+        val index = palette * 8 + colour * 2
+        val low = memory[index].toInt()
+        val high = memory[index + 1].toInt()
+        return Triple(low and 0b00011111,
+                ((low and 0b11100000) ushr 5) or ((high and 0b00000011) shl 3),
+                (high and 0b11111000) ushr 3)
+    }
+
+    inner class PaletteControlRegister : BitwiseRegister() {
+
+        var autoIncrement: Boolean by delegateBit(7)
+
+        override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+            value = values[0]
+            active = value.toInt() and 0b00011111
+        }
+
+        override fun typeAt(addr: Int): String = "RPalCtrl"
+
+    }
+
+    inner class PaletteAccessRegister : IMemoryArea {
+
+        override val length: Int
+            get() = 1
+
+        override fun read(addr: Int, direct: Boolean): Byte = memory[active]
+
+        override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = PaletteAccessMemoryRange()
+
+        override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+            memory[active] = values[0]
+            if (controlMemory.autoIncrement && !direct) {
+                active = (active + 1) % 64
+                controlMemory.value = ((controlMemory.value.toInt() and 0b11000000) or active).toByte()
+            }
+        }
+
+        override fun typeAt(addr: Int): String = "RPalAccess"
+
+        private inner class PaletteAccessMemoryRange : IMemoryRange {
+
+            override val length: Int
+                get() = 1
+
+            override fun get(index: Int): Byte = memory[active]
+
+            override fun toArray(): ByteArray = byteArrayOf(memory[active])
+
+        }
+
+    }
 
 }

@@ -10,6 +10,10 @@ fun Byte.toUnsignedInt(): Int = (toInt() and 0xFF)
 
 fun Byte.toUnsignedHex(): String = "%02X".format(toUnsignedInt())
 
+fun Int.toShortHex(): String = "%04X".format(this and 0xFFFF)
+
+fun Int.toByteHex(): String = "%02X".format(this and 0xFF)
+
 // Bitwise ops
 
 infix fun Byte.and(o: Byte): Byte = (toInt() and o.toInt()).toByte()

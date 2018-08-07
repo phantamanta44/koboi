@@ -11,8 +11,7 @@ class Timer(private val memDivider: ResettableRegister, private val memTimerCoun
             private val memIntReq: InterruptRegister) {
 
     var tickRate: TimerTickRate = TimerTickRate.R_4096_HZ
-
-    private var globalTimer: Long = 0
+    var globalTimer: Long = 0
 
     fun cycle() {
         if ((globalTimer % 256L) == 0L) ++memDivider.value

@@ -8,83 +8,56 @@ import com.jogamp.opengl.util.FPSAnimator
 import com.jogamp.opengl.util.GLBuffers
 import io.github.phantamanta44.koboi.graphics.IDisplay
 import java.nio.FloatBuffer
-import java.nio.IntBuffer
 import kotlin.properties.Delegates
 
-const val GL_POSITION: Int = 0
-const val GL_COLOUR: Int = 3
-
-const val GL_VERTEX_SHADER: Int = 35633
-const val GL_FRAGMENT_SHADER: Int = 35632
-
-const val VERTEX_COUNT = 160 * 144 * 5
-
 class GlDisplay : GLEventListener, IDisplay {
-
-    private val vertexBuffer: FloatBuffer = GLBuffers.newDirectFloatBuffer(VERTEX_COUNT)
-
+    
     private var window: GLWindow by Delegates.notNull()
     private val animator: FPSAnimator = FPSAnimator(60, true)
 
-    private val vboHandle: IntBuffer = GLBuffers.newDirectIntBuffer(1)
-    private val vaoHandle: IntBuffer = GLBuffers.newDirectIntBuffer(1)
+    private var fbHandle: Int by Delegates.notNull()
+    private var texHandle: Int by Delegates.notNull()
 
-    private var shaderProgram: Int by Delegates.notNull()
+    private var viewportX0: Int = 0
+    private var viewportY0: Int = 0
+    private var viewportX1: Int = 160
+    private var viewportY1: Int = 144
 
-    init {
-        for (y in 0..143) {
-            for (x in 0..159) {
-                vertexBuffer.put((160 * y + x) * 5, x.toFloat())
-                vertexBuffer.put((160 * y + x) * 5 + 1, y.toFloat())
-            }
-        }
-    }
+    private val pixels: Array<FloatBuffer> = Array(144, { GLBuffers.newDirectFloatBuffer(FloatArray(160 * 3, { 0F })) })
+    private val dirty: BooleanArray = BooleanArray(144, { true })
 
     override fun init(drawable: GLAutoDrawable) {
         with(window.gl.gL3) {
-            // init vertex vbo
-            glGenBuffers(1, vboHandle)
-            glBindBuffer(GL.GL_ARRAY_BUFFER, vboHandle[0])
+            // gen stuff
+            val buf = GLBuffers.newDirectIntBuffer(1)
+            glGenFramebuffers(1, buf)
+            fbHandle = buf[0]
+            glGenTextures(1, buf)
+            texHandle = buf[0]
+            buf.destroy()
 
-            // init vao
-            glGenVertexArrays(1, vaoHandle)
-            glBindVertexArray(vaoHandle[0])
-            glEnableVertexAttribArray(GL_POSITION)
-            glVertexAttribPointer(GL_POSITION, 2, GL.GL_FLOAT, false, 5, 0)
-            glEnableVertexAttribArray(GL_COLOUR)
-            glVertexAttribPointer(GL_COLOUR, 3, GL.GL_FLOAT, false, 5, 2)
-//            glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
-//            glBindVertexArray(0)
+            // init texture
+            glActiveTexture(GL.GL_TEXTURE0)
+            glBindTexture(GL.GL_TEXTURE_2D, texHandle)
+            val texBuf = GLBuffers.newDirectByteBuffer(ByteArray(160 * 144 * 3, { 0 }))
+            glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, 160, 144, 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, texBuf)
+            texBuf.destroy()
 
-            // init shaders
-            val vertShader = glCreateShader(GL_VERTEX_SHADER)
-            val vertShaderSrc = javaClass.getResource("/shader/shader.vert").readText()
-            glShaderSource(vertShader, 1, arrayOf(vertShaderSrc), intArrayOf(vertShaderSrc.length), 0)
-            glCompileShader(vertShader)
-            val fragShader = glCreateShader(GL_FRAGMENT_SHADER)
-            val fragShaderSrc = javaClass.getResource("/shader/shader.frag").readText()
-            glShaderSource(fragShader, 1, arrayOf(fragShaderSrc), intArrayOf(fragShaderSrc.length), 0)
-            glCompileShader(fragShader)
-            shaderProgram = glCreateProgram()
-            glAttachShader(shaderProgram, vertShader)
-            glAttachShader(shaderProgram, fragShader)
-            glLinkProgram(shaderProgram)
-
-            // set up gl state
-            glUseProgram(shaderProgram)
-            glEnable(GL.GL_DEPTH_TEST)
+            // bind stuff
+            glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, fbHandle)
+            glFramebufferTexture(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, texHandle, 0)
         }
     }
 
     override fun dispose(drawable: GLAutoDrawable) {
         with(drawable.gl.gL3) {
-            glUseProgram(0)
-            glDeleteProgram(shaderProgram)
-            glBindVertexArray(0)
-            glDeleteVertexArrays(1, vaoHandle)
-            glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
-            glDeleteBuffers(1, vboHandle)
-            // TODO dispose of direct-allocated buffers
+            val buf = GLBuffers.newDirectIntBuffer(1)
+            buf.put(0, fbHandle)
+            glDeleteFramebuffers(1, buf)
+            buf.put(0, texHandle)
+            glDeleteTextures(1, buf)
+            buf.destroy()
+            pixels.forEach { it.destroy() }
         }
     }
 
@@ -94,17 +67,20 @@ class GlDisplay : GLEventListener, IDisplay {
 
     override fun show(deathCallback: () -> Unit) {
         window = GLWindow.create(GLCapabilities(GLProfile.get(GLProfile.GL3)))
-        window.title = "Koboi"
-        window.setSize(160, 144)
-        window.addWindowListener(object : WindowAdapter() {
-            override fun windowDestroyNotify(e: WindowEvent) {
-                if (animator.isStarted) animator.stop()
-                deathCallback()
-            }
-        })
         window.addGLEventListener(this)
-        window.isVisible = true
-        window.setPosition(window.screen.width / 2 - window.width / 2, window.screen.height / 2 - window.height / 2)
+        with(window) {
+            title = "Koboi"
+            setSize(160, 144) // TODO command line flag
+            addWindowListener(object : WindowAdapter() {
+                override fun windowDestroyNotify(e: WindowEvent) {
+                    if (animator.isStarted) animator.stop()
+                    deathCallback()
+                }
+            })
+            isResizable = true
+            isVisible = true
+            setPosition(window.screen.width / 2 - window.width / 2, window.screen.height / 2 - window.height / 2)
+        }
         animator.add(window)
         animator.start()
     }
@@ -112,19 +88,38 @@ class GlDisplay : GLEventListener, IDisplay {
     override fun display(drawable: GLAutoDrawable) {
         with(drawable.gl.gL3) {
             glClear(GL.GL_COLOR_BUFFER_BIT)
-            glBufferData(GL.GL_ARRAY_BUFFER, VERTEX_COUNT * 4L, vertexBuffer, GL.GL_DYNAMIC_DRAW)
-            glDrawArrays(GL.GL_POINTS, 0, VERTEX_COUNT)
+            for (y in dirty.indices) {
+                if (dirty[y]) {
+                    dirty[y] = false
+                    glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 143 - y, 160, 1, GL.GL_RGB, GL.GL_FLOAT, pixels[y])
+                }
+            }
+            glBlitFramebuffer(0, 0, 160, 144, viewportX0, viewportY0, viewportX1, viewportY1, GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
         }
     }
 
-    override fun writePixel(x: Int, y: Int, colour: Int) {
-        vertexBuffer.put((160 * y + x) * 5 + 2, ((colour and 0xFF0000) ushr 16) / 255F)
-        vertexBuffer.put((160 * y + x) * 5 + 3, ((colour and 0x00FF00) ushr 8) / 255F)
-        vertexBuffer.put((160 * y + x) * 5 + 4, (colour and 0x0000FF) / 255F)
+    override fun writePixel(x: Int, y: Int, r: Int, g: Int, b: Int) {
+        pixels[y].put(x * 3, r / 0x1F.toFloat())
+        pixels[y].put(x * 3 + 1, g / 0x1F.toFloat())
+        pixels[y].put(x * 3 + 2, b / 0x1F.toFloat())
+        dirty[y] = true
     }
 
     override fun reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {
-        drawable.gl.gL3.glViewport(0, 0, width, height)
+        val idealWinWidth = height * 160F / 144F
+        if (width > idealWinWidth) { // ratio too horizontal
+            viewport((width - idealWinWidth) / 2F, 0, idealWinWidth, height)
+        } else { // ratio too vertical
+            val idealWinHeight = width * 144F / 160F
+            viewport(0, (height - idealWinHeight) / 2F, width, idealWinHeight)
+        }
+    }
+
+    private fun viewport(x: Number, y: Number, width: Number, height: Number) {
+        viewportX0 = x.toInt()
+        viewportY0 = y.toInt()
+        viewportX1 = viewportX0 + width.toInt()
+        viewportY1 = viewportY0 + height.toInt()
     }
 
 }

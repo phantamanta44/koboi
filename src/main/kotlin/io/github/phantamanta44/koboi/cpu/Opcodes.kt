@@ -5,7 +5,7 @@ import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 object Opcodes {
 
-    private val opcodeTable: Array<((Cpu) -> Unit)?> = arrayOf(
+    private val opcodeTable: Array<(Cpu) -> Unit> = arrayOf(
             advance() then idle(4), // 00
             loadHardShort into writeRegister(Cpu::regBC) then idle(12), // 01
             loadRegister(Cpu::regA) into writePointer8(Cpu::regBC) then idle(8), // 02
@@ -254,7 +254,7 @@ object Opcodes {
             predicate(nonCarry,
                     jumpAbsolute(loadHardShort) then idle(16),
                     advance(2) then idle(12)), // d2
-            null, // d3
+            unknownOpcode(0xD3), // d3
             predicate(nonCarry,
                     stackCall(loadHardShort) then idle(24),
                     advance(2) then idle(12)), // d4
@@ -268,28 +268,28 @@ object Opcodes {
             predicate(isCarry,
                     jumpAbsolute(loadHardShort) then idle(16),
                     advance(2) then idle(12)), // da
-            null, // db
+            unknownOpcode(0xDB), // db
             predicate(isCarry,
                     stackCall(loadHardShort) then idle(24),
                     advance(2) then idle(12)), // dc
-            null, // dd
+            unknownOpcode(0xDD), // dd
             loadHardByteAsInt.minusCarry() into decRegister8(Cpu::regA) then idle(8), // de
             stackCall({ 0x18 }) then idle(16), // df
 
             loadRegister(Cpu::regA) into writeHardHighAddress then idle(12), // e0
             stackPop(Cpu::regHL) then idle(12), // e1
             loadRegister(Cpu::regA) into writeHighPointer(Cpu::regC) then idle(8), // e2
-            null, // e3
-            null, // e4
+            unknownOpcode(0xE3), // e3
+            unknownOpcode(0xE4), // e4
             stackPush(Cpu::regHL) then idle(16), // e5
             akkuAnd(loadHardByte) then idle(8), // e6
             stackCall({ 0x20 }) then idle(16), // e7
             offsetStackPointer then idle(16), // e8
-            jumpAbsolute(loadPointer16(Cpu::regHL)) then idle(4), // e9
+            jumpAbsolute(loadRegister(Cpu::regHL)) then idle(4), // e9
             loadRegister(Cpu::regA) into writeHardAddress8 then idle(16), // ea
-            null, // eb
-            null, // ec
-            null, // ed
+            unknownOpcode(0xEB), // eb
+            unknownOpcode(0xEC), // ec
+            unknownOpcode(0xED), // ed
             akkuXor(loadHardByte) then idle(8), // ee
             stackCall({ 0x28 }) then idle(16), // ef
 
@@ -297,7 +297,7 @@ object Opcodes {
             stackPop(Cpu::regAF) then idle(12), // f1
             loadHighPointer(Cpu::regC) into writeRegister(Cpu::regA) then idle(8), // f2
             imeOff then idle(4), // f3
-            null, // f4
+            unknownOpcode(0xF4), // f4
             stackPush(Cpu::regAF) then idle(16), // f5
             akkuOr(loadHardByte) then idle(8), // f6
             stackCall({ 0x30 }) then idle(16), // f7
@@ -305,12 +305,12 @@ object Opcodes {
             loadRegister(Cpu::regHL) into writeRegister(Cpu::regSP) then idle(8), // f9
             loadHardAddress into writeRegister(Cpu::regA) then idle(16), // fa
             imeOn then idle(4), // fb
-            null, // fc
-            null, // fd
+            unknownOpcode(0xFC), // fc
+            unknownOpcode(0xFD), // fd
             akkuCp(loadHardByte) then idle(8), // fe
             stackCall({ 0x38 }) then idle(16) // ff
     )
 
-    operator fun get(opcode: Byte): ((Cpu) -> Unit)? = opcodeTable[opcode.toUnsignedInt()]
+    operator fun get(opcode: Byte): (Cpu) -> Unit = opcodeTable[opcode.toUnsignedInt()]
 
 }

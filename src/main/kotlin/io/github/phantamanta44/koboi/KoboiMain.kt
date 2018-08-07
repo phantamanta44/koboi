@@ -4,7 +4,6 @@ import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.SystemExitException
 import com.xenomachina.argparser.default
 import com.xenomachina.argparser.mainBody
-import io.github.phantamanta44.koboi.game.GameEngine
 import java.io.File
 import java.time.Instant
 

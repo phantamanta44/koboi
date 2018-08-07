@@ -1,17 +1,23 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.cpu.Timer
-import io.github.phantamanta44.koboi.game.GameEngine
 
 class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : IMemoryArea {
 
-    override fun read(addr: Int): Byte = rom[start + addr]
+    override fun read(addr: Int, direct: Boolean): Byte = rom[start + addr]
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = StaticRomRange(firstAddr, lastAddr)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        throw IllegalWriteException()
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if (direct) {
+            System.arraycopy(values, start, rom, this.start + addr, length)
+        } else {
+            throw IllegalWriteException()
+        }
     }
+
+    override fun typeAt(addr: Int): String = "StaticRom[$length]"
 
     private inner class StaticRomRange(val first: Int, val last: Int) : IMemoryRange {
 
@@ -37,6 +43,8 @@ class InterruptRegister : BitwiseRegister() {
 
     var joypad: Boolean by delegateBit(4)
 
+    override fun typeAt(addr: Int): String = "Interrupt"
+
 }
 
 class ClockSpeedRegister : BitwiseRegister(0b00000001) {
@@ -44,6 +52,8 @@ class ClockSpeedRegister : BitwiseRegister(0b00000001) {
     var doubleSpeed: Boolean by delegateBit(7)
 
     var prepareSpeedSwitch: Boolean by delegateBit(0)
+
+    override fun typeAt(addr: Int): String = "ClockSpeed"
 
 }
 
@@ -55,8 +65,8 @@ class TimerControlRegister(private val gameEngine: GameEngine) : BitwiseRegister
 
     var clockLower: Boolean by delegateBit(0)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        super.write(addr, *values, start = start, length = length)
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        value = values[0]
         gameEngine.clock.tickRate = when (clockUpper) {
             false -> when (clockLower) {
                 false -> Timer.TimerTickRate.R_4096_HZ
@@ -68,5 +78,7 @@ class TimerControlRegister(private val gameEngine: GameEngine) : BitwiseRegister
             }
         }
     }
+
+    override fun typeAt(addr: Int): String = "TimerCtrl"
 
 }

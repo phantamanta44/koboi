@@ -11,6 +11,7 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
                         private val memScanLine: ResettableRegister) {
 
     private var cycleCount: Int = 0
+    var dmaHBlankFrame: Boolean = false
 
     fun start() {
         display.show { cpu.alive.set(false) }
@@ -31,33 +32,29 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
                     vBlank = false
                     when {
                         cycleCount < 80 -> { // mode 2 searching oam
+                            dmaHBlankFrame = false
                             memLcdStatus.modeUpper = true
                             memLcdStatus.modeLower = false
                             if (memLcdStatus.intOam) cpu.memIntReq.lcdStat = true
                         }
-                        cycleCount == 251 -> { // mode 3 upload to display, final cycle
-                            memLcdStatus.modeUpper = true
-                            memLcdStatus.modeLower = true
-                            uploadScanLine(scanLine)
-                        }
                         cycleCount < 252 -> { // mode 3 upload to display
                             memLcdStatus.modeUpper = true
                             memLcdStatus.modeLower = true
-                        }
-                        finalCycle -> { // mode 0 h-blank, final cycle
-                            memLcdStatus.modeUpper = false
-                            memLcdStatus.modeLower = false
-                            if (memLcdStatus.intHBlank) cpu.memIntReq.lcdStat = true
-                            ++memScanLine.value
+                            if (cycleCount == 251) renderer.renderScanLine(scanLine)
                         }
                         else -> { // mode 0 h-blank
                             memLcdStatus.modeUpper = false
                             memLcdStatus.modeLower = false
                             if (memLcdStatus.intHBlank) cpu.memIntReq.lcdStat = true
+                            if (finalCycle) {
+                                dmaHBlankFrame = true
+                                ++memScanLine.value
+                            }
                         }
                     }
                 }
                 scanLine == 144 -> { // entering v-blank; fire v-blank interrupt
+                    dmaHBlankFrame = false
                     if (cycleCount == 0) {
                         memLcdStatus.modeUpper = false
                         memLcdStatus.modeLower = true
@@ -88,10 +85,6 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
             memLcdStatus.modeUpper = false
             memLcdStatus.modeLower = true
         }
-    }
-
-    private fun uploadScanLine(scanLine: Int) {
-        renderer.renderScanLine(scanLine, display, cpu)
     }
 
 }

@@ -343,21 +343,18 @@ val jumpRelative: (Cpu) -> Unit = {
 // Call stack
 
 fun stackPush(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
-    it.stackPush()
     it.advance()
     it.regSP.decrement(2)
     it.memory.write(it.regSP.read().toUnsignedInt(), register(it).read())
 }
 
 fun stackPop(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
-    it.stackPop()
     it.advance()
     register(it).write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)
 }
 
 fun stackCall(addr: (Cpu) -> Short): (Cpu) -> Unit = {
-    it.stackPush()
     it.advance()
     val target = addr(it)
     it.regSP.decrement(2)
@@ -366,7 +363,6 @@ fun stackCall(addr: (Cpu) -> Short): (Cpu) -> Unit = {
 }
 
 val stackReturn: (Cpu) -> Unit = {
-    it.stackPop()
     it.regPC.write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)
 }
@@ -394,4 +390,8 @@ val offsetHLWithStackPointer: (Cpu) -> Unit = {
     it.regF.kN = false
     it.regF.kH = initial and 0xF0 != it.regSP.read().toInt() and 0xF0
     it.regF.kC = finalUnbounded < 0 || finalUnbounded > 0xFFFF
+}
+
+fun unknownOpcode(opcode: Int): (Cpu) -> Unit = {
+    throw UnknownOpcodeException(opcode.toByte())
 }

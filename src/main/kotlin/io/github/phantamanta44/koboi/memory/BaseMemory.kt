@@ -8,13 +8,15 @@ open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
     private val memory: ByteArray = ByteArray(length)
 
-    override fun read(addr: Int): Byte = memory[addr]
+    override fun read(addr: Int, direct: Boolean): Byte = memory[addr]
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = SimpleMemoryRange(firstAddr, lastAddr)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         System.arraycopy(values, start, memory, addr, length)
     }
+
+    override fun typeAt(addr: Int): String = "Simple[$length]"
 
     private inner class SimpleMemoryRange(val first: Int, val last: Int) : IMemoryRange {
 
@@ -31,7 +33,8 @@ open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
 open class ControlMemoryArea(override val length: Int, private val callback: (Byte) -> Unit) : IMemoryArea {
 
-    override fun read(addr: Int): Byte {
+    override fun read(addr: Int, direct: Boolean): Byte {
+        if (direct) return 0xFF.toByte()
         throw IllegalReadException()
     }
 
@@ -39,9 +42,11 @@ open class ControlMemoryArea(override val length: Int, private val callback: (By
         throw IllegalReadException()
     }
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         callback(values[0])
     }
+
+    override fun typeAt(addr: Int): String = "Control[$length]"
 
 }
 
@@ -50,13 +55,15 @@ class ToggleableMemoryArea(val backing: IMemoryArea, var state: Boolean) : IMemo
     override val length: Int
         get() = backing.length
 
-    override fun read(addr: Int): Byte = if (state) backing.read(addr) else 0xFF.toByte()
+    override fun read(addr: Int, direct: Boolean): Byte = if (state || direct) backing.read(addr, direct) else 0xFF.toByte()
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = ToggleableMemoryRange(firstAddr, lastAddr)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        if (state) backing.write(addr, *values, start = start, length = length)
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if (state || direct) backing.write(addr, *values, start = start, length = length, direct = direct)
     }
+
+    override fun typeAt(addr: Int): String = "Toggle{ ${backing.typeAt(addr)} }"
 
     private inner class ToggleableMemoryRange(val first: Int, val last: Int) : IMemoryRange {
 
@@ -75,13 +82,15 @@ class ToggleableMemoryArea(val backing: IMemoryArea, var state: Boolean) : IMemo
 
 class EchoMemoryArea(private val delegate: IMemoryArea, override val length: Int) : IMemoryArea {
 
-    override fun read(addr: Int): Byte = delegate.read(addr)
+    override fun read(addr: Int, direct: Boolean): Byte = delegate.read(addr, direct)
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = delegate.readRange(firstAddr, lastAddr)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        delegate.write(addr, *values, start = start, length = length)
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        delegate.write(addr, *values, start = start, length = length, direct = direct)
     }
+
+    override fun typeAt(addr: Int): String = "Echo[$length]"
 
 }
 
@@ -96,19 +105,22 @@ class DisjointMemoryArea(private val readDelegate: IMemoryArea, private val writ
         }
     }
 
-    override fun read(addr: Int): Byte = readDelegate.read(addr)
+    override fun read(addr: Int, direct: Boolean): Byte = readDelegate.read(addr, direct)
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = readDelegate.readRange(firstAddr, lastAddr)
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        writeDelegate.write(addr, *values, start = start, length = length)
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        writeDelegate.write(addr, *values, start = start, length = length, direct = direct)
     }
+
+    override fun typeAt(addr: Int): String = "Disjoint{ ${readDelegate.typeAt(addr)}, ${writeDelegate.typeAt(addr)} }"
 
 }
 
 class UnusableMemoryArea(override val length: Int) : IMemoryArea {
 
-    override fun read(addr: Int): Byte {
+    override fun read(addr: Int, direct: Boolean): Byte {
+        if (direct) return 0xFF.toByte()
         throw UnsupportedOperationException()
     }
 
@@ -116,9 +128,11 @@ class UnusableMemoryArea(override val length: Int) : IMemoryArea {
         throw UnsupportedOperationException()
     }
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        throw UnsupportedOperationException()
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if (!direct) throw UnsupportedOperationException()
     }
+
+    override fun typeAt(addr: Int): String = "Unusable[$length]"
 
 }
 
@@ -136,38 +150,44 @@ class MappedMemoryArea(vararg segments: IMemoryArea) : IMemoryArea {
         this.length = length
     }
 
-    override fun read(addr: Int): Byte {
+    override fun read(addr: Int, direct: Boolean): Byte {
         val index = segments.indexOfFirst { it.first > addr }
         val segment = if (index == -1) segments.last() else segments[index - 1]
-        return segment.second.read(addr - segment.first)
+        return segment.second.read(addr - segment.first, direct)
     }
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange {
         return MappedMemoryRange(firstAddr, lastAddr)
     }
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         var toWrite = length
         var index = segments.indexOfFirst { it.first > addr }
         val firstSegment = if (index == -1) segments.last() else segments[index - 1]
         val firstSegmentMaxWrite = min(firstSegment.second.length - (addr - firstSegment.first), toWrite)
-        firstSegment.second.write(addr - firstSegment.first, *values, start = start, length = firstSegmentMaxWrite)
+        firstSegment.second.write(addr - firstSegment.first, *values, start = start, length = firstSegmentMaxWrite, direct = direct)
         if (firstSegmentMaxWrite != toWrite) {
             toWrite -= firstSegmentMaxWrite
             while (toWrite > 0) {
                 val segment = segments[index++]
                 val segmentMaxWrite = min(segment.second.length, toWrite)
-                segment.second.write(0, *values, start = length - toWrite, length = segmentMaxWrite)
+                segment.second.write(0, *values, start = length - toWrite, length = segmentMaxWrite, direct = direct)
                 toWrite -= segmentMaxWrite
             }
         }
+    }
+
+    override fun typeAt(addr: Int): String {
+        val index = segments.indexOfFirst { it.first > addr }
+        val segment = if (index == -1) segments.last() else segments[index - 1]
+        return "Mapped{ ${segment.second.typeAt(addr - segment.first)} }"
     }
 
     private inner class MappedMemoryRange(val first: Int, val last: Int) : IMemoryRange {
 
         override fun get(index: Int): Byte = read(first + index)
 
-        override fun toArray(): ByteArray = ByteArray(length, { get(it) }) // FIXME god is this inefficient
+        override fun toArray(): ByteArray = ByteArray(length, ::get) // FIXME god is this inefficient
 
         override val length: Int
             get() = last - first
@@ -185,13 +205,15 @@ open class SingleByteMemoryArea : IMemoryArea {
 
     var value: Byte = 0
 
-    override fun read(addr: Int): Byte = value // don't even bother validating args
+    override fun read(addr: Int, direct: Boolean): Byte = value // don't even bother validating args
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = range
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         value = values[0]
     }
+
+    override fun typeAt(addr: Int): String = "RSingle"
 
     inner class SingleByteMemoryRange : IMemoryRange {
 
@@ -210,10 +232,14 @@ open class BitwiseRegister(private val writableMask: Int = 0xFF) : SingleByteMem
 
     private val nonWritableMask = writableMask.inv()
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         val mask = values[0].toInt()
-        value = ((value.toInt() or (mask and writableMask)) and (mask or nonWritableMask)).toByte()
+        if (!direct) {
+            value = ((value.toInt() or (mask and writableMask)) and (mask or nonWritableMask)).toByte()
+        }
     }
+
+    override fun typeAt(addr: Int): String = "RBitwise"
 
     fun readBit(bit: Int): Boolean = (value.toInt() and (1 shl bit)) != 0
 
@@ -243,17 +269,21 @@ open class BitwiseRegister(private val writableMask: Int = 0xFF) : SingleByteMem
 
 class ResettableRegister : SingleByteMemoryArea() {
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        value = 0
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        value = if (direct) values[0] else 0
     }
+
+    override fun typeAt(addr: Int): String = "RReset"
 
 }
 
 class ObservableRegister(private val callback: (Byte) -> Unit) : SingleByteMemoryArea() {
 
-    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int) {
-        super.write(addr, *values, start = start, length = length)
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        value = values[0]
         callback(values[0])
     }
+
+    override fun typeAt(addr: Int): String = "RObserve"
 
 }
