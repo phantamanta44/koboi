@@ -58,7 +58,7 @@ class MbcRomOnly(rom: ByteArray) : IMemoryBankController {
 class Mbc1(rom: ByteArray) : IMemoryBankController {
 
     private val romCtrl: MemoryBankSwitcher = MemoryBankSwitcher(128, 1) {
-        if (it == 0x20 || it == 0x40 || it == 0x60) {
+        if (it == 0x00 || it == 0x20 || it == 0x40 || it == 0x60) {
             UnusableMemoryArea(16384)
         } else {
             StaticRomArea(rom, 16384 * it, 16384)
@@ -98,6 +98,7 @@ class Mbc1(rom: ByteArray) : IMemoryBankController {
                             writeType = false
                         } else {
                             romCtrl.active = romCtrl.active and 0b00011111
+                            fixRomBank()
                             writeType = true
                         }
                     }
