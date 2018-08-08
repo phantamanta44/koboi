@@ -8,6 +8,7 @@ import io.github.phantamanta44.koboi.memory.MemoryBankSwitcher
 import io.github.phantamanta44.koboi.util.and
 import io.github.phantamanta44.koboi.util.or
 import io.github.phantamanta44.koboi.util.toUnsignedInt
+import kotlin.math.floor
 
 fun getTileMapAddress(tileSelect: Boolean): Int = if (tileSelect) 0x1C00 else 0x1800
 
@@ -15,7 +16,7 @@ abstract class ScanLineRenderer(protected val ctrl: LcdControlRegister, protecte
                                 protected val cpu: Cpu, protected val vram: MemoryBankSwitcher) : IScanLineUploader {
 
     fun getTileRow(tileSelect: Boolean, absY: Int, bank: Int): IMemoryRange {
-        return vram.banks[bank].readLength(getTileMapAddress(tileSelect) + 32 * Math.floor(absY / 8.0).toInt(), 32)
+        return vram.banks[bank].readLength(getTileMapAddress(tileSelect) + 32 * floor(absY / 8.0).toInt(), 32)
     }
 
     fun getTileData(tileNum: Byte, addressingMethod: Boolean, bank: Int): IMemoryRange {
@@ -59,7 +60,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                         .zip(rowBgMeta) { tile, meta -> getTileData(tile, tileDataType, (meta.toInt() and 0x8) ushr 3) }
             for (x in 0..(windowX - 1)) {
                 val tileAbsX = scrollX + x
-                val rowIndex = Math.floor(tileAbsX / 8.0).toInt()
+                val rowIndex = floor(tileAbsX / 8.0).toInt()
                 val tileMeta = rowBgMeta[rowIndex].toInt()
                 val tileData = rowBgTiles[rowIndex]
                 val index = if (tileMeta and 0x40 != 0) ((7 - tileOffsetY) * 2) else (tileOffsetY * 2)
@@ -77,7 +78,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
             }
             for (x in windowX..159) {
                 val winTileOffsetY = y % 8
-                val rowIndex = Math.floor(x / 8.0).toInt()
+                val rowIndex = floor(x / 8.0).toInt()
                 val tileMeta = rowWinMeta[rowIndex].toInt()
                 val tileData = rowWinTiles[rowIndex]
                 val index = if (tileMeta and 0x40 != 0) ((7 - winTileOffsetY) * 2) else (winTileOffsetY * 2)
@@ -96,7 +97,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
         } else {
             for (x in 0..159) {
                 val tileAbsX = scrollX + x
-                val rowIndex = Math.floor(tileAbsX / 8.0).toInt()
+                val rowIndex = floor(tileAbsX / 8.0).toInt()
                 val tileMeta = rowBgMeta[rowIndex].toInt()
                 val tileData = rowBgTiles[rowIndex]
                 val index = if (tileMeta and 0x40 != 0) ((7 - tileOffsetY) * 2) else (tileOffsetY * 2)
@@ -147,8 +148,10 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                                     val mask = 1 shl xShiftFactor
                                     val colIndex = ((pixLower.toInt() and mask) ushr xShiftFactor) or
                                             (((pixUpper.toInt() and mask) ushr xShiftFactor) shl 1)
-                                    val col = palBg.getColours(meta and 0b00000111, colIndex)
-                                    display.writePixel(x, y, col.first, col.second, col.third)
+                                    if (colIndex != 0) {
+                                        val col = palBg.getColours(meta and 0b00000111, colIndex)
+                                        display.writePixel(x, y, col.first, col.second, col.third)
+                                    }
                                 }
                             }
                         }

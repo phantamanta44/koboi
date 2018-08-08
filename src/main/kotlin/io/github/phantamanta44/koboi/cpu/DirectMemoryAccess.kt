@@ -17,7 +17,7 @@ class DmaTransferHandler(private val gameEngine: GameEngine) {
     }
 
     fun performDmaTransfer(mode: DmaTransferMode, srcAddr: Int, length: Int, destAddr: Int) {
-        Loggr.debug("Starting DMA transfer: $length bytes from ${srcAddr.toShortHex()} to ${destAddr.toShortHex()}")
+        Loggr.debug("Starting ${mode.name} DMA transfer: $length bytes from ${srcAddr.toShortHex()} to ${destAddr.toShortHex()}")
         if (mode == DmaTransferMode.VRAM_ATOMIC) {
             gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
         } else {

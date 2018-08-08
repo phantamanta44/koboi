@@ -56,7 +56,7 @@ class ColourPaletteSwicher {
         val high = memory[index + 1].toInt()
         return Triple(low and 0b00011111,
                 ((low and 0b11100000) ushr 5) or ((high and 0b00000011) shl 3),
-                (high and 0b11111000) ushr 3)
+                (high and 0b01111100) ushr 2)
     }
 
     inner class PaletteControlRegister : BitwiseRegister() {

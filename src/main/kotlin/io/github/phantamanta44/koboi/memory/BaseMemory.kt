@@ -33,14 +33,9 @@ open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
 open class ControlMemoryArea(override val length: Int, private val callback: (Byte) -> Unit) : IMemoryArea {
 
-    override fun read(addr: Int, direct: Boolean): Byte {
-        if (direct) return 0xFF.toByte()
-        throw IllegalReadException()
-    }
+    override fun read(addr: Int, direct: Boolean): Byte = 0xFF.toByte()
 
-    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange {
-        throw IllegalReadException()
-    }
+    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = NoopMemoryRange(lastAddr - firstAddr)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         callback(values[0])
@@ -119,14 +114,9 @@ class DisjointMemoryArea(private val readDelegate: IMemoryArea, private val writ
 
 class UnusableMemoryArea(override val length: Int) : IMemoryArea {
 
-    override fun read(addr: Int, direct: Boolean): Byte {
-        if (direct) return 0xFF.toByte()
-        throw UnsupportedOperationException()
-    }
+    override fun read(addr: Int, direct: Boolean): Byte = 0xFF.toByte()
 
-    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange {
-        throw UnsupportedOperationException()
-    }
+    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = NoopMemoryRange(lastAddr - firstAddr)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         if (!direct) throw UnsupportedOperationException()
@@ -243,7 +233,7 @@ open class BitwiseRegister(private val writableMask: Int = 0xFF) : SingleByteMem
 
     fun readBit(bit: Int): Boolean = (value.toInt() and (1 shl bit)) != 0
 
-    fun writeBit(bit: Int, flag: Boolean) {
+    open fun writeBit(bit: Int, flag: Boolean) {
         value = if (flag) {
             (value.toInt() or (1 shl bit)).toByte()
         } else {
@@ -285,5 +275,15 @@ class ObservableRegister(private val callback: (Byte) -> Unit) : SingleByteMemor
     }
 
     override fun typeAt(addr: Int): String = "RObserve"
+
+}
+
+class NoopMemoryRange(override val length: Int) : IMemoryRange {
+
+    override fun get(index: Int): Byte = 0xFF.toByte()
+
+    override fun toArray(): ByteArray {
+        return ByteArray(length, { 0xFF.toByte() })
+    }
 
 }

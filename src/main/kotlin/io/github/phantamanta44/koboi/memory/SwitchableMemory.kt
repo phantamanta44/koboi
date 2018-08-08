@@ -65,7 +65,7 @@ class Mbc1(rom: ByteArray) : IMemoryBankController {
         }
     }
 
-    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(4, 0) { SimpleMemoryArea(8192) } // TODO impl
+    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(4, 0) { SimpleMemoryArea(8192) }
 
     override val ramArea: ToggleableMemoryArea = ToggleableMemoryArea(ramCtrl.memoryArea, false)
 
@@ -119,7 +119,7 @@ class Mbc5(rom: ByteArray) : IMemoryBankController {
 
     private val romCtrl: MemoryBankSwitcher = MemoryBankSwitcher(512, 1) { StaticRomArea(rom, 16384 * it, 16384) }
 
-    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(16, 0) { SimpleMemoryArea(8192) } // TODO impl
+    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(16, 0) { SimpleMemoryArea(8192) }
 
     override val ramArea: ToggleableMemoryArea = ToggleableMemoryArea(ramCtrl.memoryArea, false)
 

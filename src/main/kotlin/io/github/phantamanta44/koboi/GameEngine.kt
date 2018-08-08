@@ -4,8 +4,10 @@ import io.github.phantamanta44.koboi.cpu.*
 import io.github.phantamanta44.koboi.graphics.DisplayController
 import io.github.phantamanta44.koboi.graphics.GbRenderer
 import io.github.phantamanta44.koboi.graphics.GbcRenderer
+import io.github.phantamanta44.koboi.input.InputManager
 import io.github.phantamanta44.koboi.memory.*
 import io.github.phantamanta44.koboi.plugin.glfrontend.GlDisplay
+import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
 import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
 import io.github.phantamanta44.koboi.util.toUnsignedInt
@@ -43,6 +45,7 @@ class GameEngine(rom: ByteArray) {
     val dma: DmaTransferHandler
     val ppu: DisplayController
     val clock: Timer
+    val input: InputManager
 
     init { // TODO distinguish gb, cgb, whatever else
         // load boot rom
@@ -102,6 +105,10 @@ class GameEngine(rom: ByteArray) {
         val memTimerControl = TimerControlRegister(this) // FF07 timer control
         clock = Timer(memDivider, memTimerCounter, memTimerModulo, memTimerControl, memIntReq)
 
+        // init input and associated memory
+        val memInput = JoypadRegister(memIntReq) // FF00 input register
+        input = InputManager(memInput, memIntReq, JInputInputProvider())
+
         // other random registers
         val memClockSpeed = ClockSpeedRegister() // FF4D clock speed control
 
@@ -122,11 +129,11 @@ class GameEngine(rom: ByteArray) {
 
                 UnusableMemoryArea(96), // FEA0-FEFF unusable
 
-                SimpleMemoryArea(1), // FF00 joystick io // TODO joystick
+                memInput, // FF00 joypad register
 
                 SimpleMemoryArea(2), // FF01-FF02 serial io ports // TODO serial io
 
-                UnusableMemoryArea(1), // FF03 unused
+                SimpleMemoryArea(1), // FF03 unused
 
                 // timer stuff
                 memDivider, // FF04 clock divider
@@ -134,7 +141,7 @@ class GameEngine(rom: ByteArray) {
                 memTimerModulo, // FF06 timer modulo
                 memTimerControl, // FF07 time control
 
-                UnusableMemoryArea(7), // FF08-FF0E unused
+                SimpleMemoryArea(7), // FF08-FF0E unused
 
                 memIntReq, // FF0F interrupt request
 
@@ -155,7 +162,7 @@ class GameEngine(rom: ByteArray) {
 
                 memClockSpeed, // FF4D clock speed
 
-                UnusableMemoryArea(1), // FF4E unused
+                SimpleMemoryArea(1), // FF4E unused
 
                 memVramControl, // FF4F vram bank switch
 
@@ -166,7 +173,7 @@ class GameEngine(rom: ByteArray) {
 
                 SingleByteMemoryArea(), // FF56 cgb ir comms // TODO ir comms
 
-                UnusableMemoryArea(17), // FF57-FF67 unused
+                SimpleMemoryArea(17), // FF57-FF67 unused
 
                 // cgb palette stuff
                 cgbPaletteBg.controlMemory, // FF68 cgb bg palette control
@@ -176,14 +183,14 @@ class GameEngine(rom: ByteArray) {
 
                 SingleByteMemoryArea(), // FF6C dmg-cart-on-cgb-hardware flag
 
-                UnusableMemoryArea(3), // FF6D-FF6F unused
+                SimpleMemoryArea(3), // FF6D-FF6F unused
 
                 memWramControl, // FF70 wram bank switch
 
                 // area 51
-                UnusableMemoryArea(1), // FF71 unused
+                SimpleMemoryArea(1), // FF71 unused
                 SimpleMemoryArea(7), // FF71-FF77 some unknown stuff
-                UnusableMemoryArea(7), // FF78-FF7F unused
+                SimpleMemoryArea(7), // FF78-FF7F unused
 
                 SimpleMemoryArea(127), // FF80-FFFE hram
 
@@ -206,6 +213,7 @@ class GameEngine(rom: ByteArray) {
         try {
             ppu.start()
             while (cpu.alive.get()) {
+                input.cycle()
                 cpu.cycle()
                 if (cpu.doubleClock) cpu.cycle()
                 ppu.cycle()

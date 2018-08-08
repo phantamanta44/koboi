@@ -1,7 +1,6 @@
 package io.github.phantamanta44.koboi.memory
 
 import io.github.phantamanta44.koboi.Loggr
-import io.github.phantamanta44.koboi.cpu.Cpu
 
 class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray) : IMemoryArea {
 
@@ -83,8 +82,7 @@ class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteAr
                 // assumes this address is only written to if we're disabling the bootrom
                 bootromActive = false
                 Loggr.debug("Bootrom unmapped.")
-                Loggr.setLevel(Loggr.LogLevel.TRACE)
-                Cpu.f = true
+//                Loggr.setLevel(Loggr.LogLevel.TRACE)
             }
         }
         mainMemory.write(addr, *values, start = start, length = length, direct = direct)

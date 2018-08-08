@@ -46,6 +46,7 @@ class GlDisplay : GLEventListener, IDisplay {
             // bind stuff
             glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, fbHandle)
             glFramebufferTexture(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, texHandle, 0)
+            glClearColor(0F, 0F, 0F, 1F)
         }
     }
 

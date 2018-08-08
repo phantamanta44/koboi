@@ -20,9 +20,10 @@ repositories {
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile group: 'com.xenomachina', name: 'kotlin-argparser', version: '2.0.7'
+    compile 'com.xenomachina:kotlin-argparser:2.0.7'
     compile 'org.jogamp.gluegen:gluegen-rt:2.3.2'
     compile 'org.jogamp.jogl:jogl-all:2.3.2'
+    compile 'net.java.jinput:jinput:2.0.5'
 
     def os = System.getProperty("os.name").toLowerCase()
     if (os.contains("windows")) {

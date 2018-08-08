@@ -82,3 +82,21 @@ class TimerControlRegister(private val gameEngine: GameEngine) : BitwiseRegister
     override fun typeAt(addr: Int): String = "TimerCtrl"
 
 }
+
+class JoypadRegister(private val memIntReq: InterruptRegister) : BitwiseRegister(0b00110000) {
+
+    var enableButtons: Boolean by delegateBit(5)
+
+    var enableDPad: Boolean by delegateBit(4)
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if ((value.toInt() and values[0].toInt().inv()) and 0b00001111 != 0) memIntReq.joypad = true
+        super.write(addr, *values, start = start, length = length, direct = direct)
+    }
+
+    override fun writeBit(bit: Int, flag: Boolean) {
+        if (!flag && readBit(bit)) memIntReq.joypad = true
+        super.writeBit(bit, flag)
+    }
+
+}

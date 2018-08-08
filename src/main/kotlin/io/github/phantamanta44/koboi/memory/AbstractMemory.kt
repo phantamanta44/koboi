@@ -66,6 +66,4 @@ class MemoryRangeIterator(private val range: IMemoryRange) : ByteIterator() {
 
 }
 
-class IllegalReadException : Exception("Cannot read from write-only memory!")
-
 class IllegalWriteException : Exception("Cannot write to read-only memory!")

@@ -63,10 +63,6 @@ class Cpu(val memory: IMemoryArea,
         idleCycles += cycles
     }
 
-    companion object {
-        var f = false
-    }
-
     fun cycle() {
         if (state == CpuState.STOPPED) {
             if (memIntReq.joypad) {
@@ -79,13 +75,7 @@ class Cpu(val memory: IMemoryArea,
         if (state == CpuState.NORMAL) cycle0()
     }
 
-    fun cycle0() {
-        if (f) {
-            if (regPC.read() == 0x406E.toShort()) {
-                Loggr.setLevel(Loggr.LogLevel.DEBUG)
-                f = false
-            }
-        }
+    private fun cycle0() {
         try {
             var doCycle = true
             if (flagIME) {
@@ -114,6 +104,7 @@ class Cpu(val memory: IMemoryArea,
     fun stop() {
         if (memClockSpeed.prepareSpeedSwitch) {
             memClockSpeed.doubleSpeed = true
+            memClockSpeed.prepareSpeedSwitch = false
             doubleClock = true
             cycleDuration /= 2
             Loggr.debug("Double speed mode enabled.")
