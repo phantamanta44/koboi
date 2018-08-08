@@ -29,7 +29,7 @@ abstract class ControllerProvider(private val controller: Controller) : IInputPr
                 }
             }
         }
-        Loggr.debug("Wrapped controller ${controller.name}.")
+        Loggr.debug("Wrapped controller ${controller.name} on ${controller.portType} ${controller.portNumber}.")
     }
 
     protected abstract fun consume(event: Event)

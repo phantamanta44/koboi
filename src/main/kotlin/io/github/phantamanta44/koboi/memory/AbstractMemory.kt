@@ -10,7 +10,7 @@ interface IMemoryArea {
 
     fun read(addr: Int, direct: Boolean = false): Byte
 
-    fun readShort(addr: Int): Short = Short.cons(read(addr + 1), read(addr))
+    fun readShort(addr: Int, direct: Boolean = false): Short = Short.cons(read(addr + 1, direct), read(addr, direct))
 
     fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange
 

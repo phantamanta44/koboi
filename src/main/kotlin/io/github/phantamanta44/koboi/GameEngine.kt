@@ -10,6 +10,7 @@ import io.github.phantamanta44.koboi.plugin.glfrontend.GlDisplay
 import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
 import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
+import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
 
@@ -30,12 +31,8 @@ class GameEngine(rom: ByteArray) {
             time += System.nanoTime()
             Loggr.info("Initialized game engine in ${time / 1000000F} ms.")
 
-            if (KoboiConfig.debugShell) {
-                DebugShell(engine).begin()
-            } else {
-                Loggr.info("Beginning emulation...")
-                engine.begin()
-            }
+            Loggr.info("Beginning emulation...")
+            engine.begin()
         }
 
     }
@@ -109,6 +106,16 @@ class GameEngine(rom: ByteArray) {
         val memInput = JoypadRegister(memIntReq) // FF00 input register
         input = InputManager(memInput, memIntReq, JInputInputProvider())
 
+        // init serial io and associated memory
+        val memSioData = SingleByteMemoryArea() // FF01 serial transfer data
+        val memSioControl = ControlMemoryArea(1) {
+            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
+                print(memSioData.value.toChar())
+            } else {
+                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
+            }
+        } // FF02 serial transfer control
+
         // other random registers
         val memClockSpeed = ClockSpeedRegister() // FF4D clock speed control
 
@@ -131,7 +138,8 @@ class GameEngine(rom: ByteArray) {
 
                 memInput, // FF00 joypad register
 
-                SimpleMemoryArea(2), // FF01-FF02 serial io ports // TODO serial io
+                memSioData, // FF01-FF02 serial transfer data // TODO serial io
+                memSioControl, // FF02 serial transfer control
 
                 SimpleMemoryArea(1), // FF03 unused
 
@@ -195,10 +203,11 @@ class GameEngine(rom: ByteArray) {
                 SimpleMemoryArea(127), // FF80-FFFE hram
 
                 memIntEnable // FFFF interrupt enable
-        ), bootrom)
+        ), bootrom, ::bootromUnmapped)
 
         // create cpu
         cpu = Cpu(memory, memIntReq, memIntEnable, memClockSpeed, memLcdControl)
+        if (KoboiConfig.traceBootrom) cpu.backtrace.enabled = true
 
         // create ppu
         val scanLineRenderer = when (gbType) {
@@ -207,6 +216,11 @@ class GameEngine(rom: ByteArray) {
                     cgbPaletteBg, cgbPaletteSprite)
         }
         ppu = DisplayController(cpu, scanLineRenderer, display, memLcdControl, memLcdStatus, memScanLine)
+    }
+
+    fun bootromUnmapped() {
+        Loggr.debug("Bootrom unmapped.")
+        cpu.backtrace.enabled = true
     }
 
     fun begin() {

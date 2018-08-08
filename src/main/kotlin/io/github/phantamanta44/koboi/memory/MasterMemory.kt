@@ -1,8 +1,7 @@
 package io.github.phantamanta44.koboi.memory
 
-import io.github.phantamanta44.koboi.Loggr
-
-class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray) : IMemoryArea {
+class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray,
+               private val unmapCallback: () -> Unit) : IMemoryArea {
 
     override val length: Int
         get() = mainMemory.length
@@ -26,7 +25,7 @@ class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArr
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom
                 bootromActive = false
-                Loggr.debug("Bootrom unmapped.")
+                unmapCallback()
             }
         }
         mainMemory.write(addr, *values, start = start, length = length, direct = direct)
@@ -53,7 +52,8 @@ class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArr
 
 }
 
-class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray) : IMemoryArea {
+class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray,
+                private val unmapCallback: () -> Unit) : IMemoryArea {
 
     override val length: Int
         get() = mainMemory.length
@@ -81,8 +81,7 @@ class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteAr
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom
                 bootromActive = false
-                Loggr.debug("Bootrom unmapped.")
-//                Loggr.setLevel(Loggr.LogLevel.TRACE)
+                unmapCallback()
             }
         }
         mainMemory.write(addr, *values, start = start, length = length, direct = direct)

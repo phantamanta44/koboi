@@ -3,6 +3,7 @@ package io.github.phantamanta44.koboi.cpu
 import io.github.phantamanta44.koboi.util.cons
 import io.github.phantamanta44.koboi.util.getHighByte
 import io.github.phantamanta44.koboi.util.getLowByte
+import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 interface IRegister<T : Number> {
 
@@ -33,11 +34,11 @@ open class SingleByteRegister(protected var value: Byte = 0) : IRegister<Byte> {
     }
 
     override fun increment(offset: Int) {
-        write(((value + offset) % 256).toByte())
+        write(((value.toUnsignedInt() + offset) % 256).toByte())
     }
 
     override fun decrement(offset: Int) {
-        var newValue = value - offset
+        var newValue = value.toUnsignedInt() - offset
         while (newValue < 0) newValue += 256
         write(newValue.toByte())
     }
@@ -54,11 +55,11 @@ class RegisterPair(private val high: IRegister<Byte>, private val low: IRegister
     }
 
     override fun increment(offset: Int) {
-        write(((read() + offset) % 65536).toShort())
+        write(((read().toUnsignedInt() + offset) % 65536).toShort())
     }
 
     override fun decrement(offset: Int) {
-        var newValue = read() - offset
+        var newValue = read().toUnsignedInt() - offset
         while (newValue < 0) newValue += 65536
         write(newValue.toShort())
     }
@@ -74,11 +75,11 @@ class SingleShortRegister(private var value: Short = 0) : IRegister<Short> {
     }
 
     override fun increment(offset: Int) {
-        write(((value + offset) % 65536).toShort())
+        write(((value.toUnsignedInt() + offset) % 65536).toShort())
     }
 
     override fun decrement(offset: Int) {
-        var newValue = value - offset
+        var newValue = value.toUnsignedInt() - offset
         while (newValue < 0) newValue += 65536
         write(newValue.toShort())
     }

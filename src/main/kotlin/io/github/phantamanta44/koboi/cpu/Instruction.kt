@@ -50,16 +50,12 @@ val loadHardHighAddress: (Cpu) -> Byte = {
     it.memory.read(it.readByteAndAdvance().toUnsignedInt() + 0xFF00)
 }
 
-fun loadPointer8(register: (Cpu) -> IRegister<Short>): (Cpu) -> Byte = {
+fun loadPointer(register: (Cpu) -> IRegister<Short>): (Cpu) -> Byte = {
     it.memory.read(register(it).read().toUnsignedInt())
 }
 
-fun loadPointer8AsInt(register: (Cpu) -> IRegister<Short>): (Cpu) -> Int = {
+fun loadPointerAsInt(register: (Cpu) -> IRegister<Short>): (Cpu) -> Int = {
     it.memory.read(register(it).read().toUnsignedInt()).toUnsignedInt()
-}
-
-fun loadPointer16(register: (Cpu) -> IRegister<Short>): (Cpu) -> Short = {
-    it.memory.readShort(register(it).read().toUnsignedInt())
 }
 
 fun loadHighPointer(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Byte = {
@@ -102,7 +98,7 @@ val writeHardHighAddress: (Cpu) -> (Byte) -> Unit = {
     { byte -> it.memory.write(it.readByteAndAdvance().toUnsignedInt() + 0xFF00, byte) }
 }
 
-fun writePointer8(pointer: (Cpu) -> IRegister<Short>): (Cpu) -> (Byte) -> Unit = {
+fun writePointer(pointer: (Cpu) -> IRegister<Short>): (Cpu) -> (Byte) -> Unit = {
     { byte -> it.memory.write(pointer(it).read().toUnsignedInt(), byte) }
 }
 
@@ -357,12 +353,14 @@ fun stackPop(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
 fun stackCall(addr: (Cpu) -> Short): (Cpu) -> Unit = {
     it.advance()
     val target = addr(it)
+    it.backtrace.stackCall(target)
     it.regSP.decrement(2)
     it.memory.write(it.regSP.read().toUnsignedInt(), it.regPC.read())
     it.regPC.write(target)
 }
 
 val stackReturn: (Cpu) -> Unit = {
+    it.backtrace.stackReturn()
     it.regPC.write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)
 }
