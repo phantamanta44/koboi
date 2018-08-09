@@ -22,12 +22,6 @@ infix fun Byte.or(o: Byte): Byte = (toInt() or o.toInt()).toByte()
 
 infix fun Byte.xor(o: Byte): Byte = (toInt() xor o.toInt()).toByte()
 
-infix fun Byte.shl(o: Int): Byte = (toInt() shl o).toByte()
-
-infix fun Byte.shr(o: Int): Byte = (toInt() shr o).toByte()
-
-infix fun Byte.ushr(o: Int): Byte = (toInt() ushr o).toByte()
-
 fun Byte.inv(): Byte = (toInt() xor 0xFF).toByte()
 
 fun Byte.rotl(): Byte {

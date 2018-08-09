@@ -1,7 +1,7 @@
+import io.github.phantamanta44.koboi.backtrace.mnemonics
 import io.github.phantamanta44.koboi.cpu.Cpu
 import io.github.phantamanta44.koboi.cpu.FlagRegister
 import io.github.phantamanta44.koboi.cpu.Opcodes
-import io.github.phantamanta44.koboi.backtrace.mnemonics
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
@@ -188,5 +188,53 @@ class JumpTests : CpuTests() {
             assertRegister(cpu.regPC, tgtAddr, "JP HL $tgtAddr")
         }
     }
+
+}
+
+class ArithmeticTests : CpuTests() {
+
+    @TestFactory
+    fun testAkkuRegisterAdd(): List<DynamicTest> = listOf(0x80 to Cpu::regB, 0x81 to Cpu::regC, 0x82 to Cpu::regD,
+            0x83 to Cpu::regE, 0x84 to Cpu::regH, 0x85 to Cpu::regL)
+            .map {
+                DynamicTest.dynamicTest(it.second.name) {
+                    val rand = Random()
+                    for (i in 0..511) {
+                        val a = rand.nextInt(256)
+                        val o = rand.nextInt(256)
+                        cpu.regA.write(a.toByte())
+                        it.second.get(cpu).write(o.toByte())
+                        Opcodes[it.first.toByte()](cpu)
+                        val result = (a + o) % 256
+                        assertRegister(cpu.regA, result.toByte(), "$a + $o")
+                        assertFlag(cpu, FlagRegister::kZ, result == 0, "Z")
+                        assertFlag(cpu, FlagRegister::kN, false, "N")
+                        assertFlag(cpu, FlagRegister::kH, result and 0xF0 != a and 0xF0, "H")
+                        assertFlag(cpu, FlagRegister::kC, a + o > 255, "C")
+                    }
+                }
+            }
+
+    @TestFactory
+    fun testAkkuRegisterSub(): List<DynamicTest> = listOf(0x90 to Cpu::regB, 0x91 to Cpu::regC, 0x92 to Cpu::regD,
+            0x93 to Cpu::regE, 0x94 to Cpu::regH, 0x95 to Cpu::regL)
+            .map {
+                DynamicTest.dynamicTest(it.second.name) {
+                    val rand = Random()
+                    for (i in 0..511) {
+                        val a = rand.nextInt(256)
+                        val o = rand.nextInt(256)
+                        cpu.regA.write(a.toByte())
+                        it.second.get(cpu).write(o.toByte())
+                        Opcodes[it.first.toByte()](cpu)
+                        val result = (a + (256 - o)) % 256
+                        assertRegister(cpu.regA, result.toByte(), "$a - $o")
+                        assertFlag(cpu, FlagRegister::kZ, result == 0, "Z")
+                        assertFlag(cpu, FlagRegister::kN, true, "N")
+                        assertFlag(cpu, FlagRegister::kH, result and 0xF0 == a and 0xF0, "H")
+                        assertFlag(cpu, FlagRegister::kC, o <= a, "C")
+                    }
+                }
+            }
 
 }

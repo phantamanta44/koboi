@@ -75,7 +75,7 @@ object CbPrefixedOpcodes {
             }, // sla arithmetic shift left
             { get, set, flags ->
                 val initial = get().toInt()
-                set((initial shr 1).toByte())
+                set(((initial ushr 1) or (initial and 0x80)).toByte())
                 flags.kZ = get() == 0.toByte()
                 flags.kN = false
                 flags.kH = false
