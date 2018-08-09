@@ -44,7 +44,7 @@ class Cpu(val memory: IMemoryArea,
     private var idleCycles: Int = 0
 
     var imeChangeNextCycle: ImeChange = ImeChange.NONE
-    private var imeChangeThisCycle: ImeChange = ImeChange.NONE
+    var imeChangeThisCycle: ImeChange = ImeChange.NONE
 
     fun readByte(): Byte = memory.read(regPC.read().toUnsignedInt())
 

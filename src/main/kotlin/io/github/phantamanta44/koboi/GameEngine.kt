@@ -110,11 +110,11 @@ class GameEngine(rom: ByteArray) {
         // init serial io and associated memory
         val memSioData = SingleByteMemoryArea() // FF01 serial transfer data
         val memSioControl = ControlMemoryArea(1) {
-//            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
-//                print(memSioData.value.toChar())
-//            } else {
-//                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
-//            }
+            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
+                print(memSioData.value.toChar())
+            } else {
+                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
+            }
         } // FF02 serial transfer control
 
         // other random registers

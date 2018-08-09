@@ -370,12 +370,13 @@ val ccf: (Cpu) -> Unit = {
 }
 
 val imeOn: (Cpu) -> Unit = {
+    it.advance()
     it.imeChangeNextCycle = ImeChange.ON
 }
 
 val imeOff: (Cpu) -> Unit = {
     it.advance()
-    it.imeChangeNextCycle = ImeChange.OFF
+    it.imeChangeThisCycle = ImeChange.OFF
 }
 
 // Jumps
