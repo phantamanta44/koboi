@@ -38,9 +38,7 @@ open class SingleByteRegister(protected var value: Byte = 0) : IRegister<Byte> {
     }
 
     override fun decrement(offset: Int) {
-        var newValue = value.toUnsignedInt() - offset
-        while (newValue < 0) newValue += 256
-        write(newValue.toByte())
+        write(((value.toUnsignedInt() + (256 - offset)) % 256).toByte())
     }
 
 }
@@ -59,9 +57,7 @@ class RegisterPair(private val high: IRegister<Byte>, private val low: IRegister
     }
 
     override fun decrement(offset: Int) {
-        var newValue = read().toUnsignedInt() - offset
-        while (newValue < 0) newValue += 65536
-        write(newValue.toShort())
+        write(((read().toUnsignedInt() + (65536 - offset)) % 65536).toShort())
     }
 
 }
@@ -79,9 +75,7 @@ class SingleShortRegister(private var value: Short = 0) : IRegister<Short> {
     }
 
     override fun decrement(offset: Int) {
-        var newValue = value.toUnsignedInt() - offset
-        while (newValue < 0) newValue += 65536
-        write(newValue.toShort())
+        write(((read().toUnsignedInt() + (65536 - offset)) % 65536).toShort())
     }
 
 }

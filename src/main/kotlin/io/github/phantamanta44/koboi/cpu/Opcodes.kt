@@ -1,6 +1,5 @@
 package io.github.phantamanta44.koboi.cpu
 
-import io.github.phantamanta44.koboi.util.inv
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 object Opcodes {
@@ -59,7 +58,7 @@ object Opcodes {
             increment8(Cpu::regL) then idle(4), // 2c
             decrement8(Cpu::regL) then idle(4), // 2d
             loadHardByte into writeRegister(Cpu::regL) then idle(8), // 2e
-            loadRegister(Cpu::regA).map(Byte::inv) into writeRegister(Cpu::regA) then idle(4), // 2f
+            akkuCpl then idle(4), // 2f
 
             predicate(nonCarry,
                     jumpRelative then idle(12),
@@ -70,7 +69,7 @@ object Opcodes {
             incrementPointer(Cpu::regHL) then idle(12), // 34
             decrementPointer(Cpu::regHL) then idle(12), // 35
             loadHardByte into writePointer(Cpu::regHL) then idle(8), // 36
-            flagOn(FlagRegister::kC) then idle(4), // 37
+            scf then idle(4), // 37
             predicate(isCarry,
                     jumpRelative then idle(12),
                     advance(2) then idle(8)),// 38
@@ -80,7 +79,7 @@ object Opcodes {
             increment8(Cpu::regA) then idle(4), // 3c
             decrement8(Cpu::regA) then idle(4), // 3d
             loadHardByte into writeRegister(Cpu::regA) then idle(8), // 3e
-            flagFlip(FlagRegister::kC) then idle(4), // 3f
+            ccf then idle(4), // 3f
 
             loadRegister(Cpu::regB) into writeRegister(Cpu::regB) then idle(4), // 40
             loadRegister(Cpu::regC) into writeRegister(Cpu::regB) then idle(4), // 41
@@ -175,14 +174,14 @@ object Opcodes {
             loadRegister8AsInt(Cpu::regL) into decRegister8(Cpu::regA) then idle(4), // 95
             loadPointerAsInt(Cpu::regHL) into decRegister8(Cpu::regA) then idle(8), // 96
             loadRegister8AsInt(Cpu::regA) into decRegister8(Cpu::regA) then idle(4), // 97
-            loadRegister8AsInt(Cpu::regB).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 98
-            loadRegister8AsInt(Cpu::regC).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 99
-            loadRegister8AsInt(Cpu::regD).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 9a
-            loadRegister8AsInt(Cpu::regE).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 9b
-            loadRegister8AsInt(Cpu::regH).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 9c
-            loadRegister8AsInt(Cpu::regL).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 9d
-            loadPointerAsInt(Cpu::regHL).minusCarry() into decRegister8(Cpu::regA) then idle(8), // 9e
-            loadRegister8AsInt(Cpu::regA).minusCarry() into decRegister8(Cpu::regA) then idle(4), // 9f
+            loadRegister8AsInt(Cpu::regB).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 98
+            loadRegister8AsInt(Cpu::regC).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 99
+            loadRegister8AsInt(Cpu::regD).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 9a
+            loadRegister8AsInt(Cpu::regE).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 9b
+            loadRegister8AsInt(Cpu::regH).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 9c
+            loadRegister8AsInt(Cpu::regL).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 9d
+            loadPointerAsInt(Cpu::regHL).plusCarry() into decRegister8(Cpu::regA) then idle(8), // 9e
+            loadRegister8AsInt(Cpu::regA).plusCarry() into decRegister8(Cpu::regA) then idle(4), // 9f
 
             akkuAnd(loadRegister(Cpu::regB)) then idle(4), // a0
             akkuAnd(loadRegister(Cpu::regC)) then idle(4), // a1
@@ -224,11 +223,11 @@ object Opcodes {
             stackPop(Cpu::regBC) then idle(12), // c1
             predicate(nonZero,
                     jumpAbsolute(loadHardShort) then idle(16),
-                    advance(2) then idle(12)), // c2
+                    advance(3) then idle(12)), // c2
             jumpAbsolute(loadHardShort) then idle(16), // c3
             predicate(nonZero,
                     stackCall(loadHardShort) then idle(24),
-                    advance(2) then idle(12)), // c4
+                    advance(3) then idle(12)), // c4
             stackPush(Cpu::regBC) then idle(16), // c5
             loadHardByteAsInt into incRegister8(Cpu::regA) then idle(8), // c6
             stackCall({ 0x00 }) then idle(16), // c7
@@ -238,11 +237,11 @@ object Opcodes {
             stackReturn then idle(16), // c9
             predicate(isZero,
                     jumpAbsolute(loadHardShort) then idle(16),
-                    advance(2) then idle(12)), // ca
+                    advance(3) then idle(12)), // ca
             doCbPrefixedOpcode then idle(4), // cb
             predicate(isZero,
                     stackCall(loadHardShort) then idle(24),
-                    advance(2) then idle(12)), // cc
+                    advance(3) then idle(12)), // cc
             stackCall(loadHardShort) then idle(24), // cd
             loadHardByteAsInt.plusCarry() into incRegister8(Cpu::regA) then idle(8), // ce
             stackCall({ 0x08 }) then idle(16), // cf
@@ -253,11 +252,11 @@ object Opcodes {
             stackPop(Cpu::regDE) then idle(12), // d1
             predicate(nonCarry,
                     jumpAbsolute(loadHardShort) then idle(16),
-                    advance(2) then idle(12)), // d2
+                    advance(3) then idle(12)), // d2
             unknownOpcode(0xD3), // d3
             predicate(nonCarry,
                     stackCall(loadHardShort) then idle(24),
-                    advance(2) then idle(12)), // d4
+                    advance(3) then idle(12)), // d4
             stackPush(Cpu::regDE) then idle(16), // d5
             loadHardByteAsInt into decRegister8(Cpu::regA) then idle(8), // d6
             stackCall({ 0x10 }) then idle(16), // d7
@@ -267,13 +266,13 @@ object Opcodes {
             stackReturn then imeOn then idle(16), // d9
             predicate(isCarry,
                     jumpAbsolute(loadHardShort) then idle(16),
-                    advance(2) then idle(12)), // da
+                    advance(3) then idle(12)), // da
             unknownOpcode(0xDB), // db
             predicate(isCarry,
                     stackCall(loadHardShort) then idle(24),
-                    advance(2) then idle(12)), // dc
+                    advance(3) then idle(12)), // dc
             unknownOpcode(0xDD), // dd
-            loadHardByteAsInt.minusCarry() into decRegister8(Cpu::regA) then idle(8), // de
+            loadHardByteAsInt.plusCarry() into decRegister8(Cpu::regA) then idle(8), // de
             stackCall({ 0x18 }) then idle(16), // df
 
             loadRegister(Cpu::regA) into writeHardHighAddress then idle(12), // e0

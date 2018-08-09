@@ -2,6 +2,7 @@ package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.KoboiConfig
 import io.github.phantamanta44.koboi.Loggr
+import io.github.phantamanta44.koboi.backtrace.Backtrace
 import io.github.phantamanta44.koboi.memory.ClockSpeedRegister
 import io.github.phantamanta44.koboi.memory.IMemoryArea
 import io.github.phantamanta44.koboi.memory.InterruptRegister
@@ -99,6 +100,14 @@ class Cpu(val memory: IMemoryArea,
             }
         } catch (e: Exception) {
             except(e)
+        }
+    }
+
+    fun finishCycle(nanos: Long) {
+        val sleepTime = cycleDuration - nanos
+        if (sleepTime > 0) {
+            val remainingNanos = sleepTime % 1000L
+//            Thread.sleep((sleepTime - remainingNanos) / 1000L, remainingNanos.toInt())
         }
     }
 

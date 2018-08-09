@@ -4,7 +4,7 @@ import com.xenomachina.argparser.ArgParser
 import com.xenomachina.argparser.SystemExitException
 import com.xenomachina.argparser.default
 import com.xenomachina.argparser.mainBody
-import io.github.phantamanta44.koboi.cpu.BacktraceDetail
+import io.github.phantamanta44.koboi.backtrace.BacktraceDetail
 import java.io.File
 import java.time.Instant
 import kotlin.properties.Delegates

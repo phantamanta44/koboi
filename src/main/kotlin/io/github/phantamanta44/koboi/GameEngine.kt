@@ -13,6 +13,7 @@ import io.github.phantamanta44.koboi.util.GameboyType
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
+import kotlin.system.measureNanoTime
 
 class GameEngine(rom: ByteArray) {
 
@@ -228,8 +229,8 @@ class GameEngine(rom: ByteArray) {
             ppu.start()
             while (cpu.alive.get()) {
                 input.cycle()
-                cpu.cycle()
-                if (cpu.doubleClock) cpu.cycle()
+                cycleCpu()
+                if (cpu.doubleClock) cycleCpu()
                 ppu.cycle()
                 dma.cycle()
                 clock.cycle()
@@ -243,6 +244,11 @@ class GameEngine(rom: ByteArray) {
                 DebugShell(this).begin()
             }
         }
+    }
+
+    private fun cycleCpu() {
+        val nanos = measureNanoTime { cpu.cycle() }
+        cpu.finishCycle(nanos)
     }
 
 }

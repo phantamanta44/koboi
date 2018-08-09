@@ -38,6 +38,8 @@ dependencies {
     def arch = System.getProperty("os.arch")
     compile "org.jogamp.gluegen:gluegen-rt:2.3.2:natives-$os-$arch"
     compile "org.jogamp.jogl:jogl-all:2.3.2:natives-$os-$arch"
+
+    testCompile 'org.junit.jupiter:junit-jupiter-engine:5.2.0'
 }
 
 compileKotlin {

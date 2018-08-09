@@ -2,7 +2,7 @@ package io.github.phantamanta44.koboi.util
 
 import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.Loggr
-import io.github.phantamanta44.koboi.cpu.mnemonics
+import io.github.phantamanta44.koboi.backtrace.mnemonics
 import io.github.phantamanta44.koboi.memory.IMemoryRange
 import java.io.PrintStream
 

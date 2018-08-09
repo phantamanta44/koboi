@@ -39,25 +39,29 @@ class JInputInputProvider : IInputProvider {
 
     }
 
-    private val controllerDelegate: ControllerProvider
+    private val controllerDelegate: IInputProvider
 
     init {
         // TODO configurability
         unpackNatives()
-        try {
-            controllerDelegate = checkNotNull(ControllerEnvironment.getDefaultEnvironment().controllers.map {
-                when (it.type) {
-                    Controller.Type.GAMEPAD -> JoypadControllerProvider(it)
-                    else -> null
-                }
-            }.first { it != null })
-        } catch (e: NoSuchElementException) {
-            throw NoSuchElementException("No suitable controllers found!")
-        }
+        controllerDelegate = ControllerEnvironment.getDefaultEnvironment().controllers.map {
+            when (it.type) {
+                Controller.Type.GAMEPAD -> JoypadControllerProvider(it)
+                else -> null
+            }
+        }.firstOrNull { it != null } ?: NoopControllerProvider()
     }
 
     override fun readButton(button: ButtonType): Boolean = controllerDelegate.readButton(button)
 
     override fun readJoypad(dir: JoypadDir): Boolean = controllerDelegate.readJoypad(dir)
+
+}
+
+class NoopControllerProvider : IInputProvider {
+
+    override fun readButton(button: ButtonType): Boolean = false
+
+    override fun readJoypad(dir: JoypadDir): Boolean = false
 
 }

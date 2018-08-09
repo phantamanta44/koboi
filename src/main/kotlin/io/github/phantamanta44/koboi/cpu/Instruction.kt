@@ -1,9 +1,6 @@
 package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.util.*
-import kotlin.reflect.KMutableProperty1
-
-fun <T, V> ((Cpu) -> T).map(mapper: (T) -> V): (Cpu) -> V = { mapper(this(it)) }
 
 infix fun ((Cpu) -> Unit).then(o: (Cpu) -> Unit): (Cpu) -> Unit = { this(it); o(it) }
 
@@ -78,10 +75,6 @@ fun ((Cpu) -> Int).plusCarry(): (Cpu) -> Int = {
     if (it.regF.kC) (this(it) + 1) else this(it)
 }
 
-fun ((Cpu) -> Int).minusCarry(): (Cpu) -> Int = {
-    if (it.regF.kC) (this(it) - 1) else this(it)
-}
-
 // Load destinations
 
 fun <T : Number> writeRegister(register: (Cpu) -> IRegister<T>): (Cpu) -> (T) -> Unit = { register(it)::write }
@@ -140,7 +133,7 @@ fun incRegister16(register: (Cpu) -> IRegister<Short>): (Cpu) -> (Int) -> Unit =
         val initial = regInstance.read().toUnsignedInt()
         regInstance.increment(offset)
         it.regF.kN = false
-        it.regF.kH = initial and 0xF0 != regInstance.read().toInt() and 0xF0
+        it.regF.kH = initial and 0xF000 != regInstance.read().toInt() and 0xF000
         it.regF.kC = initial + offset > 0xFFFF
     }
 }
@@ -177,7 +170,7 @@ fun increment16(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
 fun decrement8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.advance()
     val regInstance = register(it)
-    it.regF.kH = regInstance.read().toInt() and 0xF == 0
+    it.regF.kH = regInstance.read().toInt() and 0xF != 0
     regInstance.decrement(1)
     it.regF.kZ = regInstance.read() == 0.toByte()
     it.regF.kN = true
@@ -202,7 +195,7 @@ fun decrementPointer(addr: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
     it.advance()
     val addrInstance = addr(it).read().toUnsignedInt()
     val initialValue = it.memory.read(addrInstance)
-    it.regF.kH = initialValue.toInt() and 0xF == 0
+    it.regF.kH = initialValue.toInt() and 0xF != 0
     it.memory.write(addrInstance, initialValue.dec())
     it.regF.kZ = it.memory.read(addrInstance) == 0.toByte()
     it.regF.kN = true
@@ -212,8 +205,16 @@ fun rotateLeft(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read()
-    regInstance.write(initial.rotl())
-    it.regF.kC = initial.toInt() and 0x80 == 0x80
+    if (initial == 0.toByte()) {
+        it.regF.kZ = true
+        it.regF.kC = false
+    } else {
+        regInstance.write(initial.rotl())
+        it.regF.kZ = false
+        it.regF.kC = initial.toInt() and 0x80 != 0
+    }
+    it.regF.kN = false
+    it.regF.kH = false
 }
 
 fun rotateLeftThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
@@ -225,15 +226,27 @@ fun rotateLeftThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = 
     } else {
         regInstance.write(((initial shl 1) and 1.inv()).toByte())
     }
-    it.regF.kC = initial and 0x80 == 0x80
+    val final = regInstance.read()
+    it.regF.kZ = final == 0.toByte()
+    it.regF.kN = false
+    it.regF.kH = false
+    it.regF.kC = initial and 0x80 != 0
 }
 
 fun rotateRight(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read()
-    regInstance.write(initial.rotr())
-    it.regF.kC = initial.toInt() and 1 == 1
+    if (initial == 0.toByte()) {
+        it.regF.kZ = true
+        it.regF.kC = false
+    } else {
+        regInstance.write(initial.rotr())
+        it.regF.kZ = false
+        it.regF.kC = initial.toInt() and 1 != 0
+    }
+    it.regF.kN = false
+    it.regF.kH = false
 }
 
 fun rotateRightThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
@@ -245,6 +258,10 @@ fun rotateRightThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit =
     } else {
         regInstance.write(((initial ushr 1) and 0x80.inv()).toByte())
     }
+    val final = regInstance.read()
+    it.regF.kZ = final == 0.toByte()
+    it.regF.kN = false
+    it.regF.kH = false
     it.regF.kC = initial and 1 == 1
 }
 
@@ -295,24 +312,34 @@ fun akkuCp(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.advance()
     val offset = operand(it).toUnsignedInt()
     val initial = it.regA.read().toUnsignedInt()
-    var final = initial - offset
-    while (final < 0) final += 256
+    val final = (initial + (256 - offset)) % 256
     it.regF.kZ = final == 0
     it.regF.kN = true
     it.regF.kH = initial and 0xF0 == final and 0xF0
-    it.regF.kC = initial - offset >= 0
+    it.regF.kC = initial < offset
+}
+
+val akkuCpl: (Cpu) -> Unit = {
+    it.advance()
+    it.regA.write(it.regA.read().inv())
+    it.regF.kN = true
+    it.regF.kH = true
 }
 
 // Flags
 
-fun flagOn(flag: KMutableProperty1<FlagRegister, Boolean>): (Cpu) -> Unit = {
+val scf: (Cpu) -> Unit = {
     it.advance()
-    flag.set(it.regF, true)
+    it.regF.kN = false
+    it.regF.kH = false
+    it.regF.kC = true
 }
 
-fun flagFlip(flag: KMutableProperty1<FlagRegister, Boolean>): (Cpu) -> Unit = {
+val ccf: (Cpu) -> Unit = {
     it.advance()
-    flag.set(it.regF, !flag.get(it.regF))
+    it.regF.kN = false
+    it.regF.kH = false
+    it.regF.kC = !it.regF.kC
 }
 
 val imeOn: (Cpu) -> Unit = {
@@ -368,6 +395,7 @@ val stackReturn: (Cpu) -> Unit = {
 // Weird stuff
 
 val offsetStackPointer: (Cpu) -> Unit = {
+    it.advance()
     val offset = it.readByteAndAdvance().toInt()
     val initial = it.regSP.read().toUnsignedInt()
     val finalUnbounded = initial + offset
@@ -379,6 +407,7 @@ val offsetStackPointer: (Cpu) -> Unit = {
 }
 
 val offsetHLWithStackPointer: (Cpu) -> Unit = {
+    it.advance()
     val offset = it.readByteAndAdvance().toInt()
     val initial = it.regSP.read().toUnsignedInt()
     val finalUnbounded = initial + offset
