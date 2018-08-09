@@ -1,9 +1,6 @@
 package io.github.phantamanta44.koboi.cpu
 
-import io.github.phantamanta44.koboi.util.cons
-import io.github.phantamanta44.koboi.util.getHighByte
-import io.github.phantamanta44.koboi.util.getLowByte
-import io.github.phantamanta44.koboi.util.toUnsignedInt
+import io.github.phantamanta44.koboi.util.*
 
 interface IRegister<T : Number> {
 
@@ -104,6 +101,10 @@ class FlagRegister(initialValue: Byte = 0) : SingleByteRegister(initialValue) {
 
     private fun setFlag(index: Int, flag: Boolean) {
         write((if (flag) (value.toInt() or (1 shl index)) else (value.toInt() and (1 shl index).inv())).toByte())
+    }
+
+    override fun write(value: Byte) {
+        super.write(value and 0xF0.toByte())
     }
 
 }

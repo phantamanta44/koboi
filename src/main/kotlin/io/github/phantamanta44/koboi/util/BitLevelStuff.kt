@@ -24,16 +24,6 @@ infix fun Byte.xor(o: Byte): Byte = (toInt() xor o.toInt()).toByte()
 
 fun Byte.inv(): Byte = (toInt() xor 0xFF).toByte()
 
-fun Byte.rotl(): Byte {
-    val intValue = toInt()
-    return ((intValue shl 1) or ((intValue and 0x80) ushr 7)).toByte()
-}
-
-fun Byte.rotr(): Byte {
-    val intValue = toInt()
-    return ((intValue ushr 1) or ((intValue and 1) shl 7)).toByte()
-}
-
 // Byte cons/decons
 
 fun Short.getHighByte(): Byte = ((toInt() and 0xFF00) ushr 8).toByte()

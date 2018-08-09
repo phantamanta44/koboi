@@ -209,11 +209,10 @@ class ArithmeticTests : CpuTests() {
                         cpu.regA.write(a.toByte())
                         it.second.get(cpu).write(o.toByte())
                         Opcodes[it.first.toByte()](cpu)
-                        val result = (a + o) % 256
-                        assertRegister(cpu.regA, result.toByte(), "$a + $o")
-                        assertFlag(cpu, FlagRegister::kZ, result == 0, "Z")
+                        assertRegister(cpu.regA, ((a + o) % 256).toByte(), "$a + $o")
+                        val actual = cpu.regA.read().toUnsignedInt()
+                        assertFlag(cpu, FlagRegister::kZ, actual == 0, "Z")
                         assertFlag(cpu, FlagRegister::kN, false, "N")
-                        assertFlag(cpu, FlagRegister::kH, result and 0xF0 != a and 0xF0, "H")
                         assertFlag(cpu, FlagRegister::kC, a + o > 255, "C")
                     }
                 }
@@ -231,12 +230,27 @@ class ArithmeticTests : CpuTests() {
                         cpu.regA.write(a.toByte())
                         it.second.get(cpu).write(o.toByte())
                         Opcodes[it.first.toByte()](cpu)
-                        val result = (a + (256 - o)) % 256
-                        assertRegister(cpu.regA, result.toByte(), "$a - $o")
-                        assertFlag(cpu, FlagRegister::kZ, result == 0, "Z")
+                        assertRegister(cpu.regA, ((a + (256 - o)) % 256).toByte(), "$a - $o")
+                        val actual = cpu.regA.read().toUnsignedInt()
+                        assertFlag(cpu, FlagRegister::kZ, actual == 0, "Z")
                         assertFlag(cpu, FlagRegister::kN, true, "N")
-                        assertFlag(cpu, FlagRegister::kH, result and 0xF0 == a and 0xF0, "H")
-                        assertFlag(cpu, FlagRegister::kC, o <= a, "C")
+                        assertFlag(cpu, FlagRegister::kC, o > a, "C")
+                    }
+                }
+            }
+
+    @TestFactory
+    fun testHlShortAdd(): List<DynamicTest> = listOf(0x09 to Cpu::regBC, 0x19 to Cpu::regDE, 0x39 to Cpu::regSP)
+            .map {
+                DynamicTest.dynamicTest(mnemonics[it.first]) {
+                    for (i in 0..65535) {
+                        cpu.regHL.write(32767)
+                        it.second.get(cpu).write(i.toShort())
+                        Opcodes[it.first.toByte()](cpu)
+                        assertRegister(cpu.regHL, ((i + 32767) % 65536).toShort(), "32767 + $i")
+                        val actual = cpu.regHL.read().toUnsignedInt()
+                        assertFlag(cpu, FlagRegister::kN, false, "N")
+                        assertFlag(cpu, FlagRegister::kC, i + 32767 >= 65536, "C")
                     }
                 }
             }

@@ -1,7 +1,5 @@
 package io.github.phantamanta44.koboi.cpu
 
-import io.github.phantamanta44.koboi.util.rotl
-import io.github.phantamanta44.koboi.util.rotr
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 val doCbPrefixedOpcode: (Cpu) -> Unit = {
@@ -26,20 +24,22 @@ object CbPrefixedOpcodes {
 
     val cbPrefixedOpcodeTable: Array<(Cpu) -> Unit> = listOf(
             { get, set, flags ->
-                val initial = get()
-                set(initial.rotl())
+                val initial = get().toInt()
+                val rotatingBit = initial and 0x80
+                set((((initial shl 1) and 0xFE) or (rotatingBit ushr 7)).toByte())
                 flags.kZ = get() == 0.toByte()
                 flags.kN = false
                 flags.kH = false
-                flags.kC = initial.toInt() and 0x80 == 0x80
+                flags.kC = rotatingBit != 0
             }, // rlc rotate left
             { get, set, flags ->
-                val initial = get()
-                set(initial.rotr())
+                val initial = get().toUnsignedInt()
+                val rotatingBit = initial and 1
+                set(((initial ushr 1) or (rotatingBit shl 7)).toByte())
                 flags.kZ = get() == 0.toByte()
                 flags.kN = false
                 flags.kH = false
-                flags.kC = initial.toInt() and 1 == 1
+                flags.kC = rotatingBit != 0
             }, // rrc rotate right
             { get, set, flags ->
                 val initial = get().toInt()
@@ -95,7 +95,7 @@ object CbPrefixedOpcodes {
             }, // swap
             { get, set, flags ->
                 val initial = get().toInt()
-                set((initial ushr 1).toByte())
+                set(((initial ushr 1) and 0x7F).toByte())
                 flags.kZ = get() == 0.toByte()
                 flags.kN = false
                 flags.kH = false

@@ -43,6 +43,9 @@ class Cpu(val memory: IMemoryArea,
     private var cycleDuration: Long = 238
     private var idleCycles: Int = 0
 
+    var imeChangeNextCycle: ImeChange = ImeChange.NONE
+    private var imeChangeThisCycle: ImeChange = ImeChange.NONE
+
     fun readByte(): Byte = memory.read(regPC.read().toUnsignedInt())
 
     fun readByteAndAdvance(): Byte {
@@ -79,24 +82,31 @@ class Cpu(val memory: IMemoryArea,
 
     private fun cycle0() {
         try {
-            var doCycle = true
-            if (flagIME) {
-                for (interrupt in InterruptType.values()) {
-                    if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
-                        interrupt(interrupt)
-                        doCycle = false
+            if (idleCycles > 0) {
+                --idleCycles
+            } else {
+                var doCycle = true
+                if (flagIME) {
+                    for (interrupt in InterruptType.values()) {
+                        if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
+                            interrupt(interrupt)
+                            doCycle = false
+                        }
                     }
                 }
-            }
-            if (doCycle) {
-                if (idleCycles > 0) {
-                    --idleCycles
-                } else {
+                if (doCycle) {
                     val opcode = readByte()
                     backtrace.accept(opcode)
                     val op = Opcodes[opcode]
                     op(this)
                 }
+                if (imeChangeThisCycle == ImeChange.ON) {
+                    flagIME = true
+                } else if (imeChangeThisCycle == ImeChange.OFF) {
+                    flagIME = false
+                }
+                imeChangeThisCycle = imeChangeNextCycle
+                imeChangeNextCycle = ImeChange.NONE
             }
         } catch (e: Exception) {
             except(e)
@@ -128,9 +138,10 @@ class Cpu(val memory: IMemoryArea,
     }
 
     private fun interrupt(interrupt: InterruptType) {
+        Loggr.trace("Calling interrupt vector for $interrupt")
         interrupt.flag.set(memIntReq, false)
-        interrupt.flag.set(memIntEnable, false)
-        stackCall({ interrupt.vector })(this)
+        flagIME = false
+        interrupt.callVector(this)
     }
 
     private fun except(e: Exception) {
@@ -196,6 +207,14 @@ enum class InterruptType(val flag: KMutableProperty1<InterruptRegister, Boolean>
     LCD_STAT(InterruptRegister::lcdStat, 0x48),
     TIMER(InterruptRegister::timer, 0x50),
     SERIAL(InterruptRegister::serial, 0x58),
-    JOYPAD(InterruptRegister::joypad, 0x60)
+    JOYPAD(InterruptRegister::joypad, 0x60);
+
+    val callVector: (Cpu) -> Unit = { cpu: Cpu -> cpu.regPC.decrement(1) } then stackCall({ vector })
+
+}
+
+enum class ImeChange {
+
+    NONE, ON, OFF
 
 }
