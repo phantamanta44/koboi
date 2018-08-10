@@ -203,6 +203,7 @@ class GlDisplay : GLEventListener, IDisplay {
         try {
             while (!readyForFrame.get()) pixelBufferCondition.await()
             dirty.set(true)
+            readyForFrame.set(false)
             writablePixelBuffer = writablePixelBuffer xor 1
         } finally {
             pixelBufferLock.unlock()
