@@ -62,6 +62,7 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
                         memLcdStatus.modeUpper = false
                         memLcdStatus.modeLower = true
                         cpu.memIntReq.vBlank = true
+                        display.vBlank()
                     } else if (finalCycle) {
                         ++memScanLine.value
                     }

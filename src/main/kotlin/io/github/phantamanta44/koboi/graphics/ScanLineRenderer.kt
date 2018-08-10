@@ -142,7 +142,6 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
             val index = x * 3
             display.writePixel(x, y, pixels[index], pixels[index + 1], pixels[index + 2])
         }
-        display.redrawScanLine(y)
     }
 
     private fun drawBgPixel(x: Int, tileOffsetY: Int, scrollX: Int, rowBgMeta: IMemoryRange, rowBgTiles: List<IMemoryRange>) {

@@ -8,7 +8,7 @@ interface IDisplay {
 
     fun writePixel(x: Int, y: Int, r: Int, g: Int, b: Int)
 
-    fun redrawScanLine(y: Int)
+    fun vBlank()
 
     fun setDisplayEnabled(enabled: Boolean)
 
