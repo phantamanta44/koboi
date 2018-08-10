@@ -25,7 +25,16 @@ interface IMemoryBankController {
 
 }
 
-class MemoryBankSwitcher(bankCount: Int, var active: Int, factory: (Int) -> IMemoryArea) {
+class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> IMemoryArea) {
+
+    private var _active: Int = initial
+
+    var active: Int
+        get() = _active
+        set(value) {
+            if (value >= banks.size) throw IndexOutOfBoundsException("$value >= ${banks.size}")
+            _active = value
+        }
 
     val banks: Array<IMemoryArea> = Array(bankCount, factory)
 

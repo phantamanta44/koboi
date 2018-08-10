@@ -10,7 +10,6 @@ import io.github.phantamanta44.koboi.plugin.glfrontend.GlDisplay
 import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
 import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
-import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
 import kotlin.system.measureNanoTime
@@ -53,10 +52,11 @@ class GameEngine(rom: ByteArray) {
 
         // init cart rom
         val mbc = IMemoryBankController.createController(rom) // 0000-7FFF cart rom
+        Loggr.debug("Using MBC of type ${mbc.javaClass.simpleName}")
 
         // init wram
         val wramSwitcher = MemoryBankSwitcher(gbType.wramBankCount, 1, { SimpleMemoryArea(4096) })
-        val memWram = MappedMemoryArea(SimpleMemoryArea(4096), wramSwitcher.memoryArea) // C000-DFFF wram
+        val memWram = MappedMemoryArea(wramSwitcher.banks[0], wramSwitcher.memoryArea) // C000-DFFF wram
         val memWramControl = ObservableRegister { wramSwitcher.active = Math.max(1, it.toInt() and 7) } // FF70 wram bank switch
 
         // init interrupt flags
@@ -105,16 +105,16 @@ class GameEngine(rom: ByteArray) {
 
         // init input and associated memory
         val memInput = JoypadRegister(memIntReq) // FF00 input register
-        input = InputManager(memInput, memIntReq, JInputInputProvider())
+        input = InputManager(memInput, JInputInputProvider())
 
         // init serial io and associated memory
         val memSioData = SingleByteMemoryArea() // FF01 serial transfer data
         val memSioControl = ControlMemoryArea(1) {
-            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
-                print(memSioData.value.toChar())
-            } else {
-                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
-            }
+//            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
+//                print(memSioData.value.toChar())
+//            } else {
+//                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
+//            }
         } // FF02 serial transfer control
 
         // other random registers

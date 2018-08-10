@@ -1,6 +1,7 @@
 package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.GameEngine
+import io.github.phantamanta44.koboi.KoboiConfig
 import io.github.phantamanta44.koboi.Loggr
 import io.github.phantamanta44.koboi.util.toShortHex
 
@@ -17,11 +18,13 @@ class DmaTransferHandler(private val gameEngine: GameEngine) {
     }
 
     fun performDmaTransfer(mode: DmaTransferMode, srcAddr: Int, length: Int, destAddr: Int) {
-        Loggr.debug("Starting ${mode.name} DMA transfer: $length bytes from ${srcAddr.toShortHex()} to ${destAddr.toShortHex()}")
-        if (mode == DmaTransferMode.VRAM_ATOMIC) {
-            gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
-        } else {
-            transfer = DmaTransfer(mode, srcAddr, length, destAddr)
+        if (KoboiConfig.logDmaTransfers) {
+            Loggr.trace("Starting ${mode.name} DMA transfer: $length bytes from ${srcAddr.toShortHex()} to ${destAddr.toShortHex()}")
+        }
+        when {
+            mode == DmaTransferMode.VRAM_ATOMIC -> gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
+            transfer != null -> throw IllegalStateException("DMA transfer already in progress!")
+            else -> transfer = DmaTransfer(mode, srcAddr, length, destAddr)
         }
     }
 

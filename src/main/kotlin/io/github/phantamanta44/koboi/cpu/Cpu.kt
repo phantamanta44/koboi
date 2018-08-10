@@ -138,7 +138,7 @@ class Cpu(val memory: IMemoryArea,
     }
 
     private fun interrupt(interrupt: InterruptType) {
-        Loggr.trace("Calling interrupt vector for $interrupt")
+        if (KoboiConfig.logInterrupts) Loggr.trace("Calling interrupt vector for $interrupt")
         interrupt.flag.set(memIntReq, false)
         flagIME = false
         interrupt.callVector(this)

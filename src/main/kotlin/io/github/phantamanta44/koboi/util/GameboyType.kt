@@ -7,7 +7,7 @@ import io.github.phantamanta44.koboi.memory.IMemoryArea
 enum class GameboyType(val typeName: String, val wramBankCount: Int,
                        val wrapMemory: (IMemoryArea, ByteArray, () -> Unit) -> IMemoryArea) {
 
-    GAMEBOY("gb", 1, ::GbMemory),
-    GAMEBOY_COLOUR("cgb", 7, ::GbcMemory)
+    GAMEBOY("gb", 2, ::GbMemory),
+    GAMEBOY_COLOUR("cgb", 8, ::GbcMemory)
 
 }

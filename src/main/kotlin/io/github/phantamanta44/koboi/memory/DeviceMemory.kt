@@ -10,11 +10,7 @@ class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, over
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = StaticRomRange(firstAddr, lastAddr)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        if (direct) {
-            System.arraycopy(values, start, rom, this.start + addr, length)
-        } else {
-            throw IllegalWriteException()
-        }
+        if (direct) System.arraycopy(values, start, rom, this.start + addr, length)
     }
 
     override fun typeAt(addr: Int): String = "StaticRom[$length]"
@@ -95,7 +91,7 @@ class JoypadRegister(private val memIntReq: InterruptRegister) : BitwiseRegister
     }
 
     override fun writeBit(bit: Int, flag: Boolean) {
-        if (!flag && readBit(bit)) memIntReq.joypad = true
+        if (bit <= 3 && !flag && readBit(bit)) memIntReq.joypad = true
         super.writeBit(bit, flag)
     }
 

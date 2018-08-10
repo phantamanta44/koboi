@@ -10,6 +10,7 @@ import net.java.games.input.Event
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
+import kotlin.math.atan2
 
 abstract class ControllerProvider(private val controller: Controller) : IInputProvider {
     
@@ -42,6 +43,67 @@ abstract class ControllerProvider(private val controller: Controller) : IInputPr
         dirs[dir]!!.set(state)
     }
 
+    protected fun updateJoystick(joyX: Float, joyY: Float) {
+        if (joyX * joyX + joyY * joyY > 0.25F) {
+            val dir = atan2(joyY, joyX)
+            when (dir) {
+                in -2.749F..-1.963F -> {
+                    setState(JoypadDir.UP, true)
+                    setState(JoypadDir.LEFT, true)
+                    setState(JoypadDir.DOWN, false)
+                    setState(JoypadDir.RIGHT, false)
+                }
+                in -1.963F..-1.178F -> {
+                    setState(JoypadDir.UP, true)
+                    setState(JoypadDir.LEFT, false)
+                    setState(JoypadDir.DOWN, false)
+                    setState(JoypadDir.RIGHT, false)
+                }
+                in -1.178F..-0.393F -> {
+                    setState(JoypadDir.UP, true)
+                    setState(JoypadDir.LEFT, false)
+                    setState(JoypadDir.DOWN, false)
+                    setState(JoypadDir.RIGHT, true)
+                }
+                in -0.393F..0.393F -> {
+                    setState(JoypadDir.UP, false)
+                    setState(JoypadDir.LEFT, false)
+                    setState(JoypadDir.DOWN, false)
+                    setState(JoypadDir.RIGHT, true)
+                }
+                in 0.393F..1.178F -> {
+                    setState(JoypadDir.UP, false)
+                    setState(JoypadDir.LEFT, false)
+                    setState(JoypadDir.DOWN, true)
+                    setState(JoypadDir.RIGHT, true)
+                }
+                in 1.178F..1.963F -> {
+                    setState(JoypadDir.UP, false)
+                    setState(JoypadDir.LEFT, false)
+                    setState(JoypadDir.DOWN, true)
+                    setState(JoypadDir.RIGHT, false)
+                }
+                in 1.963F..2.749F -> {
+                    setState(JoypadDir.UP, false)
+                    setState(JoypadDir.LEFT, true)
+                    setState(JoypadDir.DOWN, true)
+                    setState(JoypadDir.RIGHT, false)
+                }
+                else -> {
+                    setState(JoypadDir.UP, false)
+                    setState(JoypadDir.LEFT, true)
+                    setState(JoypadDir.DOWN, false)
+                    setState(JoypadDir.RIGHT, false)
+                }
+            }
+        } else {
+            setState(JoypadDir.UP, false)
+            setState(JoypadDir.LEFT, false)
+            setState(JoypadDir.DOWN, false)
+            setState(JoypadDir.RIGHT, false)
+        }
+    }
+
     override fun readButton(button: ButtonType): Boolean = buttons[button]!!.get()
 
     override fun readJoypad(dir: JoypadDir): Boolean = dirs[dir]!!.get()
@@ -49,6 +111,9 @@ abstract class ControllerProvider(private val controller: Controller) : IInputPr
 }
 
 class JoypadControllerProvider(controller: Controller) : ControllerProvider(controller) {
+
+    private var joyX: Float = 0F
+    private var joyY: Float = 0F
 
     override fun consume(event: Event) {
         when (event.component.identifier) {
@@ -115,6 +180,14 @@ class JoypadControllerProvider(controller: Controller) : ControllerProvider(cont
                     setState(JoypadDir.DOWN, false)
                     setState(JoypadDir.RIGHT, false)
                 }
+            }
+            Component.Identifier.Axis.X -> {
+                joyX = event.value
+                updateJoystick(joyX, joyY)
+            }
+            Component.Identifier.Axis.Y -> {
+                joyY = event.value
+                updateJoystick(joyX, joyY)
             }
         }
     }

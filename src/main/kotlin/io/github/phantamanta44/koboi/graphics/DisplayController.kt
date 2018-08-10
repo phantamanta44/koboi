@@ -23,6 +23,9 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
 
     fun cycle() {
         if (memLcdControl.lcdDisplayEnable) {
+            // enable display
+            display.setDisplayEnabled(true)
+
             // deal with scan lines
             val scanLine = memScanLine.value.toUnsignedInt()
             val finalCycle = cycleCount == 455
@@ -81,6 +84,7 @@ class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUpl
             // increment cycle
             cycleCount = if (finalCycle) 0 else (cycleCount + 1)
         } else { // display not enabled; set mode to 1 and reset scan line
+            display.setDisplayEnabled(false)
             memScanLine.value = 0
             memLcdStatus.modeUpper = false
             memLcdStatus.modeLower = true

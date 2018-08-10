@@ -19,6 +19,10 @@ object KoboiConfig {
 
     var traceBootrom: Boolean by Delegates.notNull()
 
+    var logInterrupts: Boolean by Delegates.notNull()
+
+    var logDmaTransfers: Boolean by Delegates.notNull()
+
 }
 
 fun main(args: Array<String>) = mainBody {
@@ -30,6 +34,8 @@ fun main(args: Array<String>) = mainBody {
         KoboiConfig.fullBacktrace = fullBacktrace
         KoboiConfig.debugShellOnCrash = debugShellOnCrash
         KoboiConfig.traceBootrom = traceBootrom
+        KoboiConfig.logInterrupts = logInterrupts
+        KoboiConfig.logDmaTransfers = logDmaTransfers
         GameEngine.tryInit(romFile)
     }
 }
@@ -47,6 +53,10 @@ class ParsedArgs(parser: ArgParser) {
     val debugShellOnCrash: Boolean by parser.flagging("--debug-shell-on-crash", "-d", help = "Drop to a debug shell on crash")
 
     val traceBootrom: Boolean by parser.flagging("--trace-bootrom", "-B", help = "Trace execution within the bootrom")
+
+    val logInterrupts: Boolean by parser.flagging("--log-ints", "-I", help = "Log interrupts at the TRACE level")
+
+    val logDmaTransfers: Boolean by parser.flagging("--log-dma", "-j", help = "Log DMA transfers at the TRACE level")
 
     val rom: String by parser.positional("ROM", help = "Path to a ROM image of a game cartridge")
 

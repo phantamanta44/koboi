@@ -8,6 +8,8 @@ import com.jogamp.opengl.util.FPSAnimator
 import com.jogamp.opengl.util.GLBuffers
 import io.github.phantamanta44.koboi.graphics.IDisplay
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.properties.Delegates
 
 class GlDisplay : GLEventListener, IDisplay {
@@ -15,8 +17,8 @@ class GlDisplay : GLEventListener, IDisplay {
     private var window: GLWindow by Delegates.notNull()
     private val animator: FPSAnimator = FPSAnimator(60, true)
 
-    private var fbHandle: Int by Delegates.notNull()
-    private var texHandle: Int by Delegates.notNull()
+    private var fbHandles: IntBuffer = GLBuffers.newDirectIntBuffer(1)
+    private var texHandles: IntBuffer = GLBuffers.newDirectIntBuffer(1)
 
     private var viewportX0: Int = 0
     private var viewportY0: Int = 0
@@ -25,39 +27,34 @@ class GlDisplay : GLEventListener, IDisplay {
 
     private val pixels: Array<FloatBuffer> = Array(144, { GLBuffers.newDirectFloatBuffer(FloatArray(160 * 3, { 0F })) })
     private val dirty: BooleanArray = BooleanArray(144, { true })
+    private val displayEnabled: AtomicBoolean = AtomicBoolean(false)
 
     override fun init(drawable: GLAutoDrawable) {
         with(window.gl.gL3) {
             // gen stuff
-            val buf = GLBuffers.newDirectIntBuffer(1)
-            glGenFramebuffers(1, buf)
-            fbHandle = buf[0]
-            glGenTextures(1, buf)
-            texHandle = buf[0]
-            buf.destroy()
+            glGenFramebuffers(1, fbHandles)
+            glGenTextures(1, texHandles)
 
             // init texture
-            glActiveTexture(GL.GL_TEXTURE0)
-            glBindTexture(GL.GL_TEXTURE_2D, texHandle)
             val texBuf = GLBuffers.newDirectByteBuffer(ByteArray(160 * 144 * 3, { 0 }))
+            glActiveTexture(GL.GL_TEXTURE0)
+            glBindTexture(GL.GL_TEXTURE_2D, texHandles[0])
             glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, 160, 144, 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, texBuf)
             texBuf.destroy()
 
             // bind stuff
-            glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, fbHandle)
-            glFramebufferTexture(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, texHandle, 0)
+            glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, fbHandles[0])
+            glFramebufferTexture(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, texHandles[0], 0)
             glClearColor(0F, 0F, 0F, 1F)
         }
     }
 
     override fun dispose(drawable: GLAutoDrawable) {
         with(drawable.gl.gL3) {
-            val buf = GLBuffers.newDirectIntBuffer(1)
-            buf.put(0, fbHandle)
-            glDeleteFramebuffers(1, buf)
-            buf.put(0, texHandle)
-            glDeleteTextures(1, buf)
-            buf.destroy()
+            glDeleteFramebuffers(1, fbHandles)
+            fbHandles.destroy()
+            glDeleteTextures(1, texHandles)
+            texHandles.destroy()
             pixels.forEach { it.destroy() }
         }
     }
@@ -95,7 +92,9 @@ class GlDisplay : GLEventListener, IDisplay {
                     glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 143 - y, 160, 1, GL.GL_RGB, GL.GL_FLOAT, pixels[y])
                 }
             }
-            glBlitFramebuffer(0, 0, 160, 144, viewportX0, viewportY0, viewportX1, viewportY1, GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
+            if (displayEnabled.get()) {
+                glBlitFramebuffer(0, 0, 160, 144, viewportX0, viewportY0, viewportX1, viewportY1, GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
+            }
         }
     }
 
@@ -103,7 +102,14 @@ class GlDisplay : GLEventListener, IDisplay {
         pixels[y].put(x * 3, r / 0x1F.toFloat())
         pixels[y].put(x * 3 + 1, g / 0x1F.toFloat())
         pixels[y].put(x * 3 + 2, b / 0x1F.toFloat())
+    }
+
+    override fun redrawScanLine(y: Int) {
         dirty[y] = true
+    }
+
+    override fun setDisplayEnabled(enabled: Boolean) {
+        displayEnabled.set(enabled)
     }
 
     override fun reshape(drawable: GLAutoDrawable, x: Int, y: Int, width: Int, height: Int) {

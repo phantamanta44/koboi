@@ -16,16 +16,12 @@ class Backtrace(private val cpu: Cpu) {
             val insnPtr = cpu.regPC.read()
             if (KoboiConfig.backtrace.insnTrace) {
                 stackFrame.call(cpu, insnPtr, opcode, if (KoboiConfig.backtrace.fullTrace) CpuFreeze(cpu) else null)
-            } else {
-                Loggr.trace("$${insnPtr.toUnsignedHex()} - ${mnemonics[opcode.toUnsignedInt()]}")
             }
         }
     }
 
     fun stackCall(addr: Short) {
-        if (KoboiConfig.backtrace.enableBacktrace) {
-            stackFrame = StackFrame(stackFrame, addr)
-        }
+        if (KoboiConfig.backtrace.enableBacktrace) stackFrame = StackFrame(stackFrame, addr)
     }
 
     fun stackReturn() {

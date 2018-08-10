@@ -119,7 +119,7 @@ class UnusableMemoryArea(override val length: Int) : IMemoryArea {
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = NoopMemoryRange(lastAddr - firstAddr)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        if (!direct) throw UnsupportedOperationException()
+        // NO-OP
     }
 
     override fun typeAt(addr: Int): String = "Unusable[$length]"
