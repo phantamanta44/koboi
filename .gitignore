@@ -16,3 +16,8 @@
 *.gbc
 *.gba
 *.log
+
+# Natives
+*.dll
+*.jnilib
+*.so
