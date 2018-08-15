@@ -149,7 +149,7 @@ class GlDisplay : GLEventListener, IDisplay {
         window.addGLEventListener(this)
         with(window) {
             title = "Koboi"
-            setSize(160, 144) // TODO command line flag
+            setSize(160 * 2, 144 * 2) // TODO command line flag
             addWindowListener(object : WindowAdapter() {
                 override fun windowDestroyNotify(e: WindowEvent) {
                     if (animator.isStarted) animator.stop()
@@ -175,7 +175,7 @@ class GlDisplay : GLEventListener, IDisplay {
                         glActiveTexture(when (activeTexture) {
                             0 -> GL.GL_TEXTURE0
                             1 -> GL.GL_TEXTURE1
-                            else -> throw IllegalStateException()
+                            else -> throw IllegalStateException(activeTexture.toString())
                         })
                         glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, 160, 144, 0, GL.GL_RGB, GL.GL_FLOAT, pixels[writablePixelBuffer xor 1])
                         activeTexture = activeTexture xor 1

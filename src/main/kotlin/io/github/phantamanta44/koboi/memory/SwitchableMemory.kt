@@ -2,6 +2,7 @@ package io.github.phantamanta44.koboi.memory
 
 import io.github.phantamanta44.koboi.util.toShortHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
+import kotlin.properties.Delegates
 
 interface IMemoryBankController {
 
@@ -27,14 +28,9 @@ interface IMemoryBankController {
 
 class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> IMemoryArea) {
 
-    private var _active: Int = initial
-
-    var active: Int
-        get() = _active
-        set(value) {
-            if (value >= banks.size) throw IndexOutOfBoundsException("$value >= ${banks.size}")
-            _active = value
-        }
+    var active: Int by Delegates.observable(initial) { _, _, n ->
+        if (n >= banks.size) throw IndexOutOfBoundsException("$n >= ${banks.size}")
+    }
 
     val banks: Array<IMemoryArea> = Array(bankCount, factory)
 

@@ -40,7 +40,7 @@ class Cpu(val memory: IMemoryArea,
     var state: CpuState = CpuState.NORMAL
     var doubleClock: Boolean = false
 
-    private var cycleDuration: Long = 238
+    var cycleDuration: Long = 238
     private var idleCycles: Int = 0
 
     var imeChangeNextCycle: ImeChange = ImeChange.NONE
@@ -110,14 +110,6 @@ class Cpu(val memory: IMemoryArea,
             }
         } catch (e: Exception) {
             except(e)
-        }
-    }
-
-    fun finishCycle(nanos: Long) {
-        val sleepTime = cycleDuration - nanos
-        if (sleepTime > 0) {
-            val remainingNanos = sleepTime % 1000L
-//            Thread.sleep((sleepTime - remainingNanos) / 1000L, remainingNanos.toInt())
         }
     }
 

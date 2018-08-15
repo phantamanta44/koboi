@@ -1,5 +1,7 @@
 package io.github.phantamanta44.koboi
 
+import io.github.phantamanta44.koboi.audio.AudioManager
+import io.github.phantamanta44.koboi.audio.IAudioInterface
 import io.github.phantamanta44.koboi.cpu.*
 import io.github.phantamanta44.koboi.graphics.DisplayController
 import io.github.phantamanta44.koboi.graphics.GbRenderer
@@ -8,11 +10,12 @@ import io.github.phantamanta44.koboi.input.InputManager
 import io.github.phantamanta44.koboi.memory.*
 import io.github.phantamanta44.koboi.plugin.glfrontend.GlDisplay
 import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
+import io.github.phantamanta44.koboi.plugin.jxsound.JxSoundAudioInterface
 import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
+import io.github.phantamanta44.koboi.util.throttleThread
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
-import kotlin.system.measureNanoTime
 
 class GameEngine(rom: ByteArray) {
 
@@ -41,6 +44,7 @@ class GameEngine(rom: ByteArray) {
     val cpu: Cpu
     val dma: DmaTransferHandler
     val ppu: DisplayController
+    val audio: AudioManager
     val clock: Timer
     val input: InputManager
 
@@ -103,6 +107,48 @@ class GameEngine(rom: ByteArray) {
         val memTimerControl = TimerControlRegister(this) // FF07 timer control
         clock = Timer(memDivider, memTimerCounter, memTimerModulo, memTimerControl, memIntReq)
 
+        // init audio and associated memory
+        val audioIface = JxSoundAudioInterface()
+
+        val memAudio1Sweep = Ch1SweepRegister(this) // FF10 NR10 channel 1 sweep register
+        val memAudio1LengthDuty = LengthDutyRegister(this, IAudioInterface::channel1, AudioManager::c1LengthCounter) // FF11 NR11 channel 1 length/wave pattern duty
+        val memAudio1Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel1, AudioManager::c1VolumeEnv) // FF12 NR12 channel 1 volume envelope
+        val memAudio1FreqLo = FreqLowRegister(this, AudioManager::c1UpdateFrequency) // FF13 NR13 channel 1 frequency low
+        val memAudio1FreqHi = FreqHighRegister(this, AudioManager::c1LengthCounter, AudioManager::c1UpdateFrequency, AudioManager::c1RestartSound) // FF14 NR14 channel 1 frequency high
+
+        val memAudio2LengthDuty = LengthDutyRegister(this, IAudioInterface::channel2, AudioManager::c2LengthCounter) // FF16 NR21 channel 2 length/wave pattern duty
+        val memAudio2Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel2, AudioManager::c2VolumeEnv) // FF17 NR22 channel 2 volume envelope
+        val memAudio2FreqLo = FreqLowRegister(this, AudioManager::c2UpdateFrequency) // FF18 NR23 channel 2 frequency low
+        val memAudio2FreqHi = FreqHighRegister(this, AudioManager::c2LengthCounter, AudioManager::c2UpdateFrequency, AudioManager::c2RestartSound) // FF19 NR24 channel 2 frequency high
+
+        val memAudio3Enable = ObservableRegister { audioIface.channel3.generator.enabled = it != 0.toByte() } // FF1A NR30 channel 3 on/off
+        val memAudio3Length = Ch3LengthRegister(this) // FF1B NR31 channel 3 sound length
+        val memAudio3Volume = ObservableRegister { audioIface.channel3.volume = when (it.toInt() and 0b01100000) {
+            0b00000000 -> 0F
+            0b00100000 -> 1F
+            0b01000000 -> 0.5F
+            0b01100000 -> 0.25F
+            else -> throw IllegalStateException(it.toString())
+        } } // FF1C NR32 channel 3 output level
+        val memAudio3FreqLo = FreqLowRegister(this, AudioManager::c3UpdateFrequency) // FF1D NR33 channel 3 frequency low
+        val memAudio3FreqHi = FreqHighRegister(this, AudioManager::c3LengthCounter, AudioManager::c3UpdateFrequency, AudioManager::c3RestartSound) // FF1E NR34 channel 3 frequency high
+        val memAudio3WavePattern = Ch3WavePatternMemoryArea(this) // FF30-FF3F channel 3 wave pattern data
+
+        val memAudio4Length = Ch4LengthRegister(this) // FF20 NR41 channel 4 sound length
+        val memAudio4Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel4, AudioManager::c4VolumeEnv) // FF21 NR42 channel 4 volume envelope
+        val memAudio4PolyCounter = Ch4PolyCounterRegister(this) // FF22 NR43 channel 4 polynomial counter
+        val memAudio4Control = Ch4ControlRegister(this) // FF23 NR44 channel 4 control
+
+        val memAudioMasterVol = VInRegister() // FF24 NR50 VIn control
+        val memAudioChannelVol = ChannelVolumeRegister(this) // FF25 NR51 per-channel output
+        val memAudioKillSwitch = AudioKillSwitchRegister(this) // FF26 NR52 audio kill switch
+
+        audio = AudioManager(audioIface, clock,
+                memAudio1FreqLo, memAudio1FreqHi,
+                memAudio2FreqLo, memAudio2FreqHi,
+                memAudio3FreqLo, memAudio3FreqHi, memAudio3WavePattern,
+                memAudioKillSwitch)
+
         // init input and associated memory
         val memInput = JoypadRegister(memIntReq) // FF00 input register
         input = InputManager(memInput, JInputInputProvider())
@@ -155,7 +201,31 @@ class GameEngine(rom: ByteArray) {
                 memIntReq, // FF0F interrupt request
 
                 // sound stuff
-                SimpleMemoryArea(48), // FF10-FF3F sound io ports // TODO sound
+                memAudio1Sweep, // FF10 NR10 channel 1 sweep register
+                memAudio1LengthDuty, // FF11 NR11 channel 1 length/wave pattern duty
+                memAudio1Volume, // FF12 NR12 channel 1 volume envelope
+                memAudio1FreqLo, // FF13 NR13 channel 1 frequency low
+                memAudio1FreqHi, // FF14 NR14 channel 1 frequency high
+                UnusableMemoryArea(1), // FF15 unused
+                memAudio2LengthDuty, // FF16 NR21 channel 2 length/wave pattern duty
+                memAudio2Volume, // FF17 NR22 channel 2 volume envelope
+                memAudio2FreqLo, // FF18 NR23 channel 2 frequency low
+                memAudio2FreqHi, // FF19 NR24 channel 2 frequency high
+                memAudio3Enable, // FF1A NR30 channel 3 on/off
+                memAudio3Length, // FF1B NR31 channel 3 sound length
+                memAudio3Volume, // FF1C NR32 channel 3 output level
+                memAudio3FreqLo, // FF1D NR33 channel 3 frequency low
+                memAudio3FreqHi, // FF1E NR34 channel 3 frequency high
+                UnusableMemoryArea(1), // FF1F unused
+                memAudio4Length, // FF20 NR41 channel 4 sound length
+                memAudio4Volume, // FF21 NR42 channel 4 volume envelope
+                memAudio4PolyCounter, // FF22 NR43 channel 4 polynomial counter
+                memAudio4Control, // FF23 NR44 channel 4 control
+                memAudioMasterVol, // FF24 NR50 VIn control
+                memAudioChannelVol, // FF25 NR51 per-channel output
+                memAudioKillSwitch, // FF26 NR52 audio kill switch
+                UnusableMemoryArea(9), // FF27-FF2F unused
+                memAudio3WavePattern, // FF30-FF3F channel 3 wave pattern data
 
                 // display stuff
                 memLcdControl, // FF40 lcd control
@@ -219,7 +289,7 @@ class GameEngine(rom: ByteArray) {
         ppu = DisplayController(cpu, scanLineRenderer, display, memLcdControl, memLcdStatus, memScanLine)
     }
 
-    fun bootromUnmapped() {
+    private fun bootromUnmapped() {
         Loggr.debug("Bootrom unmapped.")
         cpu.backtrace.enabled = true
     }
@@ -227,17 +297,11 @@ class GameEngine(rom: ByteArray) {
     fun begin() {
         try {
             ppu.start()
-            while (cpu.alive.get()) {
-                input.cycle()
-                cycleCpu()
-                if (cpu.doubleClock) cycleCpu()
-                ppu.cycle()
-                dma.cycle()
-                clock.cycle()
-            }
+            while (cpu.alive.get()) gameLoop()
             throw EmulationException(cpu, IllegalStateException("CPU operation abruptly halted!"))
         } catch (e: EmulationException) {
             ppu.kill()
+            audio.kill()
             e.printStackTrace()
             e.printCpuState()
             if (KoboiConfig.debugShellOnCrash) {
@@ -246,9 +310,16 @@ class GameEngine(rom: ByteArray) {
         }
     }
 
-    private fun cycleCpu() {
-        val nanos = measureNanoTime { cpu.cycle() }
-        cpu.finishCycle(nanos)
+    private fun gameLoop() {
+        input.cycle()
+        cpu.cycle()
+        if (cpu.doubleClock) cpu.cycle()
+        ppu.cycle()
+        audio.cycle()
+        dma.cycle()
+        clock.cycle()
+//        throttleThread(238L) // TODO figure out what's wrong with this
+        // TODO figure out why the main thread sometimes randomly freezes
     }
 
 }

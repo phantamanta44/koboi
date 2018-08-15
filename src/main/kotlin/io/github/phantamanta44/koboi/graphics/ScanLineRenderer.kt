@@ -45,7 +45,8 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
 
     override fun renderScanLine(y: Int) {
         // draw bg/window
-        bgPriorities.fill(if (ctrl.bgState) 2 else 1)
+        val setPriority = ctrl.bgState
+        bgPriorities.fill(if (setPriority) 1 else 0)
         val tileAbsY = (cpu.memory.read(0xFF42).toUnsignedInt() + y) % 256
         val tileOffsetY = tileAbsY % 8
         val bgTileMapType = ctrl.bgTileMapDisplaySelect
@@ -62,7 +63,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                 val winAbsY = y - windowY
                 val rowWinMeta = getTileRow(winTileMapType, winAbsY, 1)
                 val rowWinTiles = getTileRow(winTileMapType, winAbsY, 0)
-                        .zip(rowBgMeta) { tile, meta -> getTileData(tile, tileDataType, (meta.toInt() and 0x8) ushr 3) }
+                        .zip(rowWinMeta) { tile, meta -> getTileData(tile, tileDataType, (meta.toInt() and 0x8) ushr 3) }
                 val windowXRange = windowX..(windowX + 159)
                 val winTileOffsetY = winAbsY % 8
                 for (x in 0..159) {
@@ -79,19 +80,23 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                         val colIndex = ((pixLower.toInt() and mask) ushr xShiftFactor) or
                                 (((pixUpper.toInt() and mask) ushr xShiftFactor) shl 1)
                         val col = palBg.getColours(tileMeta and 0b00000111, colIndex)
-                        if (tileMeta and 0x80 == 0) {
-                            bgPriorities[x] = if (colIndex == 0) 0 else 1
+                        if (setPriority) {
+                            if (colIndex == 0) {
+                                bgPriorities[x] = 0
+                            } else if (tileMeta and 0x80 != 0) {
+                                bgPriorities[x] = 2
+                            }
                         }
                         writePixel(x, col)
                     } else {
-                        drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles)
+                        drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles, setPriority)
                     }
                 }
             } else {
-                for (x in 0..159) drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles)
+                for (x in 0..159) drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles, setPriority)
             }
         } else {
-            for (x in 0..159) drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles)
+            for (x in 0..159) drawBgPixel(x, tileOffsetY, scrollX, rowBgMeta, rowBgTiles, setPriority)
         }
 
         // draw sprites
@@ -119,8 +124,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                         }
                         for (x in sX..(sX + 7)) {
                             if (x in 0..159) {
-                                val bgPriority = bgPriorities[x]
-                                if (bgPriority == 0 || (bgPriority == 1 && meta and 0x80 == 0)) {
+                                if (bgPriorities[x] == 0 || (meta and 0x80 == 0 && bgPriorities[x] == 1)) {
                                     val pixLower = tileData[spriteOffsetY * 2]
                                     val pixUpper = tileData[spriteOffsetY * 2 + 1]
                                     val xShiftFactor = if (meta and 0x20 != 0) (x - sX) else (7 + sX - x)
@@ -144,7 +148,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
         }
     }
 
-    private fun drawBgPixel(x: Int, tileOffsetY: Int, scrollX: Int, rowBgMeta: IMemoryRange, rowBgTiles: List<IMemoryRange>) {
+    private fun drawBgPixel(x: Int, tileOffsetY: Int, scrollX: Int, rowBgMeta: IMemoryRange, rowBgTiles: List<IMemoryRange>, setPriority: Boolean) {
         val tileAbsX = (scrollX + x) % 256
         val rowIndex = floor(tileAbsX / 8.0).toInt()
         val tileMeta = rowBgMeta[rowIndex].toInt()
@@ -157,8 +161,12 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
         val colIndex = ((pixLower.toInt() and mask) ushr xShiftFactor) or
                 (((pixUpper.toInt() and mask) ushr xShiftFactor) shl 1)
         val col = palBg.getColours(tileMeta and 0b00000111, colIndex)
-        if (tileMeta and 0x80 == 0) {
-            bgPriorities[x] = if (colIndex == 0) 0 else 1
+        if (setPriority) {
+            if (colIndex == 0) {
+                bgPriorities[x] = 0
+            } else if (tileMeta and 0x80 != 0) {
+                bgPriorities[x] = 2
+            }
         }
         writePixel(x, col)
     }

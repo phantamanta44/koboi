@@ -24,7 +24,6 @@ dependencies {
     compile 'org.jogamp.gluegen:gluegen-rt:2.3.2'
     compile 'org.jogamp.jogl:jogl-all:2.3.2'
     compile 'net.java.jinput:jinput:2.0.5'
-    compile 'org.jogamp.joal:joal-main:2.3.2'
 
     def os = System.getProperty("os.name").toLowerCase()
     if (os.contains("windows")) {

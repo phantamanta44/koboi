@@ -6,7 +6,7 @@ import kotlin.reflect.KProperty
 
 open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
-    private val memory: ByteArray = ByteArray(length)
+    protected val memory: ByteArray = ByteArray(length)
 
     override fun read(addr: Int, direct: Boolean): Byte = memory[addr]
 
@@ -126,24 +126,28 @@ class UnusableMemoryArea(override val length: Int) : IMemoryArea {
 
 }
 
-class MappedMemoryArea(vararg segments: IMemoryArea) : IMemoryArea {
+class MappedMemoryArea(vararg memSegments: IMemoryArea) : IMemoryArea {
 
-    private val segments: MutableList<Pair<Int, IMemoryArea>> = mutableListOf()
+    private val segments: List<Pair<Int, IMemoryArea>>
+    private val indexMappings: IntArray = memSegments.withIndex()
+            .flatMap { seg -> (1..seg.value.length).map { seg.index } }
+            .toIntArray()
     override val length: Int
 
     init {
-        var length = 0
-        for (segment in segments) {
-            this.segments.add(Pair(length, segment))
-            length += segment.length
+        val segList = mutableListOf<Pair<Int, IMemoryArea>>()
+        var lenAgg = 0
+        for (segment in memSegments) {
+            segList.add(lenAgg to segment)
+            lenAgg += segment.length
         }
-        this.length = length
+        segments = segList
+        length = lenAgg
     }
 
     override fun read(addr: Int, direct: Boolean): Byte {
-        val index = segments.indexOfFirst { it.first > addr }
-        val segment = if (index == -1) segments.last() else segments[index - 1]
-        return segment.second.read(addr - segment.first, direct)
+        val segment = segments[indexMappings[addr]]
+        return segment.second.read(addr - segment.first)
     }
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange {
@@ -152,8 +156,8 @@ class MappedMemoryArea(vararg segments: IMemoryArea) : IMemoryArea {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         var toWrite = length
-        var index = segments.indexOfFirst { it.first > addr }
-        val firstSegment = if (index == -1) segments.last() else segments[index - 1]
+        var index = indexMappings[addr]
+        val firstSegment = segments[index]
         val firstSegmentMaxWrite = min(firstSegment.second.length - (addr - firstSegment.first), toWrite)
         firstSegment.second.write(addr - firstSegment.first, *values, start = start, length = firstSegmentMaxWrite, direct = direct)
         if (firstSegmentMaxWrite != toWrite) {
@@ -168,8 +172,7 @@ class MappedMemoryArea(vararg segments: IMemoryArea) : IMemoryArea {
     }
 
     override fun typeAt(addr: Int): String {
-        val index = segments.indexOfFirst { it.first > addr }
-        val segment = if (index == -1) segments.last() else segments[index - 1]
+        val segment = segments[indexMappings[addr]]
         return "Mapped{ ${segment.second.typeAt(addr - segment.first)} }"
     }
 
@@ -220,12 +223,14 @@ open class SingleByteMemoryArea : IMemoryArea {
 
 open class BitwiseRegister(private val writableMask: Int = 0xFF) : SingleByteMemoryArea() {
 
-    private val nonWritableMask = writableMask.inv()
+    private val nonWritableMask = writableMask.inv() and 0xFF
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        val mask = values[0].toInt()
-        if (!direct) {
-            value = ((value.toInt() or (mask and writableMask)) and (mask or nonWritableMask)).toByte()
+        value = if (direct) {
+            values[0]
+        } else {
+            val mask = values[0].toInt()
+            ((value.toInt() or (mask and writableMask)) and (mask or nonWritableMask)).toByte()
         }
     }
 
@@ -241,20 +246,45 @@ open class BitwiseRegister(private val writableMask: Int = 0xFF) : SingleByteMem
         }
     }
 
-    fun delegateBit(bit: Int): ReadWriteProperty<BitwiseRegister, Boolean> {
-        return BitDelegate(bit)
-    }
+    fun delegateBit(bit: Int): ReadWriteProperty<BitwiseRegister, Boolean> = BitDelegate(bit)
 
     inner class BitDelegate(private val bit: Int) : ReadWriteProperty<BitwiseRegister, Boolean> {
 
         override fun getValue(thisRef: BitwiseRegister, property: KProperty<*>): Boolean = readBit(bit)
 
-        override fun setValue(thisRef: BitwiseRegister, property: KProperty<*>, value: Boolean) {
-            writeBit(bit, value)
-        }
+        override fun setValue(thisRef: BitwiseRegister, property: KProperty<*>, value: Boolean) = writeBit(bit, value)
 
     }
 
+    fun readMaskedInt(mask: Int, shift: Int): Int = (value.toInt() and mask) ushr shift
+
+    fun writeMaskedInt(mask: Int, shift: Int, num: Int) {
+        value = ((value.toInt() and mask.inv()) or (num shl shift)).toByte()
+    }
+
+    fun delegateMaskedInt(mask: Int, shift: Int) : ReadWriteProperty<BitwiseRegister, Int> = BitmaskDelegate(mask, shift)
+
+    inner class BitmaskDelegate(private val mask: Int, private val shift: Int) : ReadWriteProperty<BitwiseRegister, Int> {
+
+        override fun getValue(thisRef: BitwiseRegister, property: KProperty<*>): Int = readMaskedInt(mask, shift)
+
+        override fun setValue(thisRef: BitwiseRegister, property: KProperty<*>, value: Int) = writeMaskedInt(mask, shift, value)
+
+    }
+
+}
+
+open class BiDiBitwiseRegister(writableMask: Int = 0xFF, readableMask: Int) : BitwiseRegister(writableMask) {
+
+    private val unreadableMask: Int = readableMask.inv() and 0xFF
+
+    override fun read(addr: Int, direct: Boolean): Byte {
+        return if (direct) {
+            super.read(addr, direct)
+        } else {
+            (super.read(addr, direct).toInt() or unreadableMask).toByte()
+        }
+    }
 }
 
 class ResettableRegister : SingleByteMemoryArea() {
