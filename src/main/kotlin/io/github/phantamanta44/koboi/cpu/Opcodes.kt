@@ -4,7 +4,7 @@ import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 object Opcodes {
 
-    private val opcodeTable: Array<(Cpu) -> Unit> = arrayOf(
+    private val opcodeTable: Array<Insn> = arrayOf(
             advance() then idle(4), // 00
             loadHardShort into writeRegister(Cpu::regBC) then idle(12), // 01
             loadRegister(Cpu::regA) into writePointer(Cpu::regBC) then idle(8), // 02
@@ -22,7 +22,7 @@ object Opcodes {
             loadHardByte into writeRegister(Cpu::regC) then idle(8), // 0e
             rotateRight(Cpu::regA) then idle(4), // 0f
 
-            { it.advance(2); it.stop(); it.idle(4); }, // 10
+            { it.advance(2); it.stop(); it.idle(3); }, // 10
             loadHardShort into writeRegister(Cpu::regDE) then idle(12), // 11
             loadRegister(Cpu::regA) into writePointer(Cpu::regDE) then idle(8), // 12
             increment16(Cpu::regDE) then idle(8), // 13
@@ -68,7 +68,7 @@ object Opcodes {
             increment16(Cpu::regSP) then idle(8), // 33
             incrementPointer(Cpu::regHL) then idle(12), // 34
             decrementPointer(Cpu::regHL) then idle(12), // 35
-            loadHardByte into writePointer(Cpu::regHL) then idle(8), // 36
+            loadHardByte into writePointer(Cpu::regHL) then idle(12), // 36
             scf then idle(4), // 37
             predicate(isCarry,
                     jumpRelative then idle(12),
@@ -138,7 +138,7 @@ object Opcodes {
             loadRegister(Cpu::regE) into writePointer(Cpu::regHL) then idle(8), // 73
             loadRegister(Cpu::regH) into writePointer(Cpu::regHL) then idle(8), // 74
             loadRegister(Cpu::regL) into writePointer(Cpu::regHL) then idle(8), // 75
-            { it.advance(); it.halt(); it.idle(4); }, // 76
+            { it.advance(); it.halt(); it.idle(3); }, // 76
             loadRegister(Cpu::regA) into writePointer(Cpu::regHL) then idle(8), // 77
             loadRegister(Cpu::regB) into writeRegister(Cpu::regA) then idle(4), // 78
             loadRegister(Cpu::regC) into writeRegister(Cpu::regA) then idle(4), // 79
@@ -310,6 +310,6 @@ object Opcodes {
             stackCall({ 0x38 }) then idle(16) // ff
     )
 
-    operator fun get(opcode: Byte): (Cpu) -> Unit = opcodeTable[opcode.toUnsignedInt()]
+    operator fun get(opcode: Byte): Insn = opcodeTable[opcode.toUnsignedInt()]
 
 }

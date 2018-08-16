@@ -1,6 +1,5 @@
 package io.github.phantamanta44.koboi.memory
 
-import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.cpu.Timer
 
 class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : IMemoryArea {
@@ -53,25 +52,30 @@ class ClockSpeedRegister : BitwiseRegister(0b00000001) {
 
 }
 
-class TimerControlRegister(private val gameEngine: GameEngine) : BitwiseRegister() {
+class TimerControlRegister(private val timer: Timer) : BitwiseRegister() {
 
-    var timerEnabled: Boolean by delegateBit(2)
+    private var timerEnabled: Boolean by delegateBit(2)
 
-    var clockUpper: Boolean by delegateBit(1)
+    private var clockUpper: Boolean by delegateBit(1)
 
-    var clockLower: Boolean by delegateBit(0)
+    private var clockLower: Boolean by delegateBit(0)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         value = values[0]
-        gameEngine.clock.tickRate = when (clockUpper) {
-            false -> when (clockLower) {
-                false -> Timer.TimerTickRate.R_4096_HZ
-                true -> Timer.TimerTickRate.R_262144_HZ
+        if (timerEnabled) {
+            timer.enabled = true
+            timer.tickRate = when (clockUpper) {
+                false -> when (clockLower) {
+                    false -> Timer.TimerTickRate.R_4096_HZ
+                    true -> Timer.TimerTickRate.R_262144_HZ
+                }
+                true -> when (clockLower) {
+                    false -> Timer.TimerTickRate.R_65536_HZ
+                    true -> Timer.TimerTickRate.R_16384_HZ
+                }
             }
-            true -> when (clockLower) {
-                false -> Timer.TimerTickRate.R_65536_HZ
-                true -> Timer.TimerTickRate.R_16384_HZ
-            }
+        } else {
+            timer.enabled = false
         }
     }
 

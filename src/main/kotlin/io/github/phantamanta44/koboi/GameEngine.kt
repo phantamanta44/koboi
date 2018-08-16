@@ -13,7 +13,7 @@ import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
 import io.github.phantamanta44.koboi.plugin.jxsound.JxSoundAudioInterface
 import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
-import io.github.phantamanta44.koboi.util.throttleThread
+import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
 
@@ -48,6 +48,8 @@ class GameEngine(rom: ByteArray) {
     val clock: Timer
     val input: InputManager
 
+    var testOutput: String = ""
+
     init { // TODO distinguish gb, cgb, whatever else
         // load boot rom
         val gbType = if (rom[0x0143] == 0.toByte()) GameboyType.GAMEBOY else GameboyType.GAMEBOY_COLOUR
@@ -81,7 +83,9 @@ class GameEngine(rom: ByteArray) {
         val memDmaOam = ControlMemoryArea(1) { // FF46 oam dma
             dma.performDmaTransfer(DmaTransferMode.OAM, it.toUnsignedInt() shl 8, 160, 0xFE00)
         }
-        val memMonoPalettes = SimpleMemoryArea(3) // FF47-FF49 monochrome palettes
+        val memMonoPaletteBg = MonoPaletteRegister() // FF47 monochrome background palette
+        val memMonoPaletteSprite0 = MonoPaletteRegister() // FF48 monochrome sprite palette 0
+        val memMonoPaletteSprite1 = MonoPaletteRegister() // FF49 monochrome sprite palette
         val memWindowPosition = SimpleMemoryArea(2) // FF4A-FF4B window y, (x-7)
         val memDmaVramAddresses = SimpleMemoryArea(4) // FF51-FF54 vram dma source, destination
         val dmaVramTriggerBacking = BitwiseRegister()
@@ -104,8 +108,8 @@ class GameEngine(rom: ByteArray) {
         val memDivider = ResettableRegister() // FF04 clock divider
         val memTimerCounter = SingleByteMemoryArea() // FF05 timer counter
         val memTimerModulo = SingleByteMemoryArea() // FF06 timer modulo
-        val memTimerControl = TimerControlRegister(this) // FF07 timer control
-        clock = Timer(memDivider, memTimerCounter, memTimerModulo, memTimerControl, memIntReq)
+        clock = Timer(memDivider, memTimerCounter, memTimerModulo, memIntReq, this)
+        val memTimerControl = TimerControlRegister(clock) // FF07 timer control
 
         // init audio and associated memory
         val audioIface = JxSoundAudioInterface()
@@ -155,12 +159,19 @@ class GameEngine(rom: ByteArray) {
 
         // init serial io and associated memory
         val memSioData = SingleByteMemoryArea() // FF01 serial transfer data
-        val memSioControl = ControlMemoryArea(1) {
-//            if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
-//                print(memSioData.value.toChar())
-//            } else {
-//                throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
-//            }
+        val memSioControl = if (KoboiConfig.blarggMode) {
+            ControlMemoryArea(1) {
+                if (memSioData.value in 0x20..0x7E || memSioData.value == 0x0A.toByte()) {
+                    val char = memSioData.value.toChar()
+                    print(char)
+                    testOutput += char
+                    if (testOutput.endsWith("Failed")) throw IllegalStateException("Blargg!")
+                } else {
+                    throw IllegalArgumentException("${memSioData.value.toUnsignedHex()} ain't ascii!")
+                }
+            }
+        } else {
+            UnusableMemoryArea(1)
         } // FF02 serial transfer control
 
         // other random registers
@@ -234,7 +245,9 @@ class GameEngine(rom: ByteArray) {
                 memScanLine, // FF44 scan line y
                 memLyCompare, // FF45 scan line comparison
                 memDmaOam, // FF46 oam dma
-                memMonoPalettes, // FF47-FF49 monochrome palettes
+                memMonoPaletteBg, // FF47 monochrome background palette
+                memMonoPaletteSprite0, // FF48 monochrome sprite palette 0
+                memMonoPaletteSprite1, // FF49 monochrome sprite palette 1
                 memWindowPosition, // FF4A-FF4B window y, (x-7)
 
                 SingleByteMemoryArea(), // FF4C is-cgb-cart flag
@@ -282,7 +295,8 @@ class GameEngine(rom: ByteArray) {
 
         // create ppu
         val scanLineRenderer = when (gbType) {
-            GameboyType.GAMEBOY -> GbRenderer(memLcdControl, display, cpu, vramSwitcher)
+            GameboyType.GAMEBOY -> GbRenderer(memLcdControl, display, cpu, vramSwitcher,
+                    memMonoPaletteBg, memMonoPaletteSprite0, memMonoPaletteSprite1)
             GameboyType.GAMEBOY_COLOUR -> GbcRenderer(memLcdControl, display, cpu, vramSwitcher,
                     cgbPaletteBg, cgbPaletteSprite)
         }
@@ -314,10 +328,10 @@ class GameEngine(rom: ByteArray) {
         input.cycle()
         cpu.cycle()
         if (cpu.doubleClock) cpu.cycle()
+        clock.cycle()
         ppu.cycle()
         audio.cycle()
         dma.cycle()
-        clock.cycle()
 //        throttleThread(238L) // TODO figure out what's wrong with this
         // TODO figure out why the main thread sometimes randomly freezes
     }

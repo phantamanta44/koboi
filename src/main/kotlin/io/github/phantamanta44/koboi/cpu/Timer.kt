@@ -1,25 +1,41 @@
 package io.github.phantamanta44.koboi.cpu
 
+import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.memory.InterruptRegister
 import io.github.phantamanta44.koboi.memory.ResettableRegister
 import io.github.phantamanta44.koboi.memory.SingleByteMemoryArea
-import io.github.phantamanta44.koboi.memory.TimerControlRegister
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 class Timer(private val memDivider: ResettableRegister, private val memTimerCounter: SingleByteMemoryArea,
-            private val memTimerModulo: SingleByteMemoryArea, private val memTimerControl: TimerControlRegister,
-            private val memIntReq: InterruptRegister) {
+            private val memTimerModulo: SingleByteMemoryArea, private val memIntReq: InterruptRegister,
+            engine: GameEngine) {
 
+    private val cpu: Cpu by lazy { engine.cpu }
+
+    var enabled: Boolean = false
     var tickRate: TimerTickRate = TimerTickRate.R_4096_HZ
     var globalTimer: Long = 0
 
+    private var timerCounter: Int = 0
+    private var timerReset: Boolean = false
+
     fun cycle() {
-        if ((globalTimer % 256L) == 0L) ++memDivider.value
-        if (memTimerControl.timerEnabled) {
-            if ((globalTimer % tickRate.cyclesPerTimerTick) == 0L) {
-                if (memTimerCounter.value.toUnsignedInt() == 255) {
-                    memTimerCounter.value = memTimerModulo.value
-                    memIntReq.timer = true
+        if (cpu.doubleClock) {
+            if (globalTimer % 128 == 0L) ++memDivider.value
+        } else if (globalTimer % 256 == 0L) {
+            ++memDivider.value
+        }
+        if (enabled) {
+            if (timerReset) {
+                timerReset = false
+                memTimerCounter.value = memTimerModulo.value
+                memIntReq.timer = true
+            }
+            if (++timerCounter >= tickRate.cyclesPerTimerTick) {
+                timerCounter = 0
+                if (memTimerCounter.value.toUnsignedInt() == 0xFF) {
+                    memTimerCounter.value = 0
+                    timerReset = true
                 } else {
                     ++memTimerCounter.value
                 }

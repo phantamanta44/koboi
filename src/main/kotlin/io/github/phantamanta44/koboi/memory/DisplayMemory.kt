@@ -105,3 +105,15 @@ class ColourPaletteSwicher {
     }
 
 }
+
+val MONO_COLOURS: List<Triple<Int, Int, Int>> = listOf(
+        Triple(0x1F, 0x1F, 0x1F), Triple(0x15, 0x15, 0x15), Triple(0x0B, 0x0B, 0x0B), Triple(0, 0, 0))
+
+class MonoPaletteRegister : BitwiseRegister() {
+
+    fun getColour(colour: Int): Triple<Int, Int, Int> {
+        val shiftFactor = colour * 2
+        return MONO_COLOURS[readMaskedInt(0b11 shl shiftFactor, shiftFactor)]
+    }
+
+}

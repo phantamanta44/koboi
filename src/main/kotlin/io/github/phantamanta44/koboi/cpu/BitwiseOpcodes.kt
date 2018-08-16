@@ -2,14 +2,14 @@ package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
-val doCbPrefixedOpcode: (Cpu) -> Unit = {
+val doCbPrefixedOpcode: Insn = {
     it.advance()
     CbPrefixedOpcodes.cbPrefixedOpcodeTable[it.readByteAndAdvance().toUnsignedInt()](it)
 }
 
 object CbPrefixedOpcodes {
 
-    private val singleByteRegisters: List<Triple<(Cpu) -> Byte, (Cpu, Byte) -> Unit, Int>> = listOf(
+    private val singleByteRegisters: List<Triple<CpuOut8, (Cpu, Byte) -> Unit, Int>> = listOf(
             forRegister(Cpu::regB),
             forRegister(Cpu::regC),
             forRegister(Cpu::regD),
@@ -22,7 +22,7 @@ object CbPrefixedOpcodes {
             forRegister(Cpu::regA)
     )
 
-    val cbPrefixedOpcodeTable: Array<(Cpu) -> Unit> = listOf(
+    val cbPrefixedOpcodeTable: Array<Insn> = listOf(
             { get, set, flags ->
                 val initial = get().toInt()
                 val rotatingBit = initial and 0x80
@@ -110,7 +110,7 @@ object CbPrefixedOpcodes {
         }
     }.toTypedArray()
 
-    private fun forRegister(register: (Cpu) -> IRegister<Byte>): Triple<(Cpu) -> Byte, (Cpu, Byte) -> Unit, Int> {
+    private fun forRegister(register: CpuReg8): Triple<CpuOut8, (Cpu, Byte) -> Unit, Int> {
         return Triple({ cpu: Cpu -> register(cpu).read() }, { cpu, byte -> register(cpu).write(byte) }, 8)
     }
 

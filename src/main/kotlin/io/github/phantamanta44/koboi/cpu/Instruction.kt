@@ -2,70 +2,84 @@ package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.util.*
 
-infix fun ((Cpu) -> Unit).then(o: (Cpu) -> Unit): (Cpu) -> Unit = { this(it); o(it) }
+typealias Insn = (Cpu) -> Unit
+typealias InsnCond = (Cpu) -> Boolean
 
-fun advance(count: Int = 1): (Cpu) -> Unit = { it.advance(count) }
+typealias CpuOut8 = (Cpu) -> Byte
+typealias CpuOut16 = (Cpu) -> Short
+typealias CpuOutInt = (Cpu) -> Int
 
-fun idle(cycles: Int): (Cpu) -> Unit = { it.idle(cycles) }
+typealias CpuReg8 = (Cpu) -> IRegister<Byte>
+typealias CpuReg16 = (Cpu) -> IRegister<Short>
 
-infix fun <T : Number> ((Cpu) -> T).into(dest: (Cpu) -> (T) -> Unit): (Cpu) -> Unit = {
+typealias CpuIn8 = (Cpu) -> (Byte) -> Unit
+typealias CpuIn16 = (Cpu) -> (Short) -> Unit
+typealias CpuInInt = (Cpu) -> (Int) -> Unit
+
+infix fun (Insn).then(o: Insn): Insn = { this(it); o(it) }
+
+fun advance(count: Int = 1): Insn = { it.advance(count) }
+
+fun idle(cycles: Int): Insn = { it.idle(cycles - 1) }
+
+infix fun <T : Number> ((Cpu) -> T).into(dest: (Cpu) -> (T) -> Unit): Insn = {
     it.advance()
     dest(it)(this(it))
 }
 
 // Predicates
 
-fun predicate(condition: (Cpu) -> Boolean, ifTrue: (Cpu) -> Unit, ifFalse: (Cpu) -> Unit): (Cpu) -> Unit = {
+fun predicate(condition: InsnCond, ifTrue: Insn, ifFalse: Insn): Insn = {
     (if (condition(it)) ifTrue else ifFalse)(it)
 }
 
-val isZero: (Cpu) -> Boolean = { it.regF.kZ }
+val isZero: InsnCond = { it.regF.kZ }
 
-val nonZero: (Cpu) -> Boolean = { !it.regF.kZ }
+val nonZero: InsnCond = { !it.regF.kZ }
 
-val isCarry: (Cpu) -> Boolean = { it.regF.kC }
+val isCarry: InsnCond = { it.regF.kC }
 
-val nonCarry: (Cpu) -> Boolean = { !it.regF.kC }
+val nonCarry: InsnCond = { !it.regF.kC }
 
 // Load sources
 
-val loadHardByte: (Cpu) -> Byte = Cpu::readByteAndAdvance
+val loadHardByte: CpuOut8 = Cpu::readByteAndAdvance
 
-val loadHardByteAsInt: (Cpu) -> Int = { it.readByteAndAdvance().toUnsignedInt() }
+val loadHardByteAsInt: CpuOutInt = { it.readByteAndAdvance().toUnsignedInt() }
 
-val loadHardShort: (Cpu) -> Short = Cpu::readShortAndAdvance
+val loadHardShort: CpuOut16 = Cpu::readShortAndAdvance
 
-val loadHardAddress: (Cpu) -> Byte = { it.memory.read(it.readShortAndAdvance().toUnsignedInt()) }
+val loadHardAddress: CpuOut8 = { it.memory.read(it.readShortAndAdvance().toUnsignedInt()) }
 
 fun <T : Number> loadRegister(register: (Cpu) -> IRegister<T>): (Cpu) -> T = { register(it).read() }
 
-fun loadRegister8AsInt(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Int = { register(it).read().toUnsignedInt() }
+fun loadRegister8AsInt(register: CpuReg8): CpuOutInt = { register(it).read().toUnsignedInt() }
 
-fun loadRegister16AsInt(register: (Cpu) -> IRegister<Short>): (Cpu) -> Int = { register(it).read().toUnsignedInt() }
+fun loadRegister16AsInt(register: CpuReg16): CpuOutInt = { register(it).read().toUnsignedInt() }
 
-val loadHardHighAddress: (Cpu) -> Byte = {
+val loadHardHighAddress: CpuOut8 = {
     it.memory.read(it.readByteAndAdvance().toUnsignedInt() + 0xFF00)
 }
 
-fun loadPointer(register: (Cpu) -> IRegister<Short>): (Cpu) -> Byte = {
+fun loadPointer(register: CpuReg16): CpuOut8 = {
     it.memory.read(register(it).read().toUnsignedInt())
 }
 
-fun loadPointerAsInt(register: (Cpu) -> IRegister<Short>): (Cpu) -> Int = {
+fun loadPointerAsInt(register: CpuReg16): CpuOutInt = {
     it.memory.read(register(it).read().toUnsignedInt()).toUnsignedInt()
 }
 
-fun loadHighPointer(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Byte = {
+fun loadHighPointer(register: CpuReg8): CpuOut8 = {
     it.memory.read(register(it).read().toUnsignedInt() + 0xFF00)
 }
 
-val loadHLPointerThenAdvance: (Cpu) -> Byte = {
+val loadHLPointerThenAdvance: CpuOut8 = {
     val result = it.memory.read(it.regHL.read().toUnsignedInt())
     it.regHL.increment(1)
     result
 }
 
-val loadHLPointerThenBacktrack: (Cpu) -> Byte = {
+val loadHLPointerThenBacktrack: CpuOut8 = {
     val result = it.memory.read(it.regHL.read().toUnsignedInt())
     it.regHL.decrement(1)
     result
@@ -75,34 +89,34 @@ val loadHLPointerThenBacktrack: (Cpu) -> Byte = {
 
 fun <T : Number> writeRegister(register: (Cpu) -> IRegister<T>): (Cpu) -> (T) -> Unit = { register(it)::write }
 
-val writeHardAddress8: (Cpu) -> (Byte) -> Unit = {
+val writeHardAddress8: CpuIn8 = {
     { byte -> it.memory.write(it.readShortAndAdvance().toUnsignedInt(), byte) }
 }
 
-val writeHardAddress16: (Cpu) -> (Short) -> Unit = {
+val writeHardAddress16: CpuIn16 = {
     { short -> it.memory.write(it.readShortAndAdvance().toUnsignedInt(), short) }
 }
 
-val writeHardHighAddress: (Cpu) -> (Byte) -> Unit = {
+val writeHardHighAddress: CpuIn8 = {
     { byte -> it.memory.write(it.readByteAndAdvance().toUnsignedInt() + 0xFF00, byte) }
 }
 
-fun writePointer(pointer: (Cpu) -> IRegister<Short>): (Cpu) -> (Byte) -> Unit = {
+fun writePointer(pointer: CpuReg16): CpuIn8 = {
     { byte -> it.memory.write(pointer(it).read().toUnsignedInt(), byte) }
 }
 
-fun writeHighPointer(pointer: (Cpu) -> IRegister<Byte>): (Cpu) -> (Byte) -> Unit = {
+fun writeHighPointer(pointer: CpuReg8): CpuIn8 = {
     { byte -> it.memory.write(pointer(it).read().toUnsignedInt() + 0xFF00, byte) }
 }
 
-val writeHLPointerThenAdvance: (Cpu) -> (Byte) -> Unit = {
+val writeHLPointerThenAdvance: CpuIn8 = {
     { byte ->
         it.memory.write(it.regHL.read().toUnsignedInt(), byte)
         it.regHL.increment(1)
     }
 }
 
-val writeHLPointerThenBacktrack: (Cpu) -> (Byte) -> Unit = {
+val writeHLPointerThenBacktrack: CpuIn8 = {
     { byte ->
         it.memory.write(it.regHL.read().toUnsignedInt(), byte)
         it.regHL.decrement(1)
@@ -111,7 +125,7 @@ val writeHLPointerThenBacktrack: (Cpu) -> (Byte) -> Unit = {
 
 // Math destinations
 
-fun incRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
+fun incRegister8(register: CpuReg8): CpuInInt = {
     { offset ->
         val regInstance = register(it)
         val initial = regInstance.read().toUnsignedInt()
@@ -123,7 +137,7 @@ fun incRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
     }
 }
 
-fun adcRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
+fun adcRegister8(register: CpuReg8): CpuInInt = {
     { offset ->
         val regInstance = register(it)
         val initial = regInstance.read().toUnsignedInt()
@@ -141,7 +155,7 @@ fun adcRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
     }
 }
 
-fun incRegister16(register: (Cpu) -> IRegister<Short>): (Cpu) -> (Int) -> Unit = {
+fun incRegister16(register: CpuReg16): CpuInInt = {
     { offset ->
         val regInstance = register(it)
         val initial = regInstance.read().toUnsignedInt()
@@ -152,7 +166,7 @@ fun incRegister16(register: (Cpu) -> IRegister<Short>): (Cpu) -> (Int) -> Unit =
     }
 }
 
-fun decRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
+fun decRegister8(register: CpuReg8): CpuInInt = {
     { offset ->
         val regInstance = register(it)
         val initial = regInstance.read().toUnsignedInt()
@@ -164,7 +178,7 @@ fun decRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
     }
 }
 
-fun sbcRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
+fun sbcRegister8(register: CpuReg8): CpuInInt = {
     { offset ->
         val regInstance = register(it)
         val initial = regInstance.read().toUnsignedInt()
@@ -184,7 +198,7 @@ fun sbcRegister8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> (Int) -> Unit = {
 
 // Unary math
 
-fun increment8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun increment8(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     it.regF.kH = regInstance.read().toInt() and 0xF == 0xF
@@ -193,12 +207,12 @@ fun increment8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.regF.kN = false
 }
 
-fun increment16(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun increment16(register: CpuReg16): Insn = {
     it.advance()
     register(it).increment(1)
 }
 
-fun decrement8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun decrement8(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     it.regF.kH = regInstance.read().toInt() and 0x0F == 0
@@ -207,12 +221,12 @@ fun decrement8(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.regF.kN = true
 }
 
-fun decrement16(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun decrement16(register: CpuReg16): Insn = {
     it.advance()
     register(it).decrement(1)
 }
 
-fun incrementPointer(addr: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun incrementPointer(addr: CpuReg16): Insn = {
     it.advance()
     val addrInstance = addr(it).read().toUnsignedInt()
     val initialValue = it.memory.read(addrInstance)
@@ -222,7 +236,7 @@ fun incrementPointer(addr: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
     it.regF.kN = false
 }
 
-fun decrementPointer(addr: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun decrementPointer(addr: CpuReg16): Insn = {
     it.advance()
     val addrInstance = addr(it).read().toUnsignedInt()
     val initialValue = it.memory.read(addrInstance)
@@ -232,7 +246,7 @@ fun decrementPointer(addr: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
     it.regF.kN = true
 }
 
-fun rotateLeft(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun rotateLeft(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read().toInt()
@@ -244,7 +258,7 @@ fun rotateLeft(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.regF.kC = rotatingBit != 0
 }
 
-fun rotateLeftThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun rotateLeftThroughCarry(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read().toInt()
@@ -259,7 +273,7 @@ fun rotateLeftThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = 
     it.regF.kC = initial and 0x80 != 0
 }
 
-fun rotateRight(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun rotateRight(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read().toUnsignedInt()
@@ -271,7 +285,7 @@ fun rotateRight(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
     it.regF.kC = rotatingBit != 0
 }
 
-fun rotateRightThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit = {
+fun rotateRightThroughCarry(register: CpuReg8): Insn = {
     it.advance()
     val regInstance = register(it)
     val initial = regInstance.read().toInt()
@@ -290,7 +304,7 @@ fun rotateRightThroughCarry(register: (Cpu) -> IRegister<Byte>): (Cpu) -> Unit =
  * adapted from trekawek's coffee-gb, which is under the mit license
  * https://github.com/trekawek/coffee-gb/blob/master/src/main/java/eu/rekawek/coffeegb/cpu/AluFunctions.java
  */
-val daa: (Cpu) -> Unit = {
+val daa: Insn = {
     it.advance()
     var result = it.regA.read().toUnsignedInt()
     if (it.regF.kN) {
@@ -309,7 +323,7 @@ val daa: (Cpu) -> Unit = {
 
 // Akku ops
 
-fun akkuAnd(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
+fun akkuAnd(operand: CpuOut8): Insn = {
     it.advance()
     it.regA.write(it.regA.read() and operand(it))
     it.regF.kZ = it.regA.read() == 0.toByte()
@@ -318,7 +332,7 @@ fun akkuAnd(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.regF.kC = false
 }
 
-fun akkuXor(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
+fun akkuXor(operand: CpuOut8): Insn = {
     it.advance()
     it.regA.write(it.regA.read() xor operand(it))
     it.regF.kZ = it.regA.read() == 0.toByte()
@@ -327,7 +341,7 @@ fun akkuXor(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.regF.kC = false
 }
 
-fun akkuOr(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
+fun akkuOr(operand: CpuOut8): Insn = {
     it.advance()
     it.regA.write(it.regA.read() or operand(it))
     it.regF.kZ = it.regA.read() == 0.toByte()
@@ -336,7 +350,7 @@ fun akkuOr(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.regF.kC = false
 }
 
-fun akkuCp(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
+fun akkuCp(operand: CpuOut8): Insn = {
     it.advance()
     val offset = operand(it).toUnsignedInt()
     val initial = it.regA.read().toUnsignedInt()
@@ -346,7 +360,7 @@ fun akkuCp(operand: (Cpu) -> Byte): (Cpu) -> Unit = {
     it.regF.kC = initial < offset
 }
 
-val akkuCpl: (Cpu) -> Unit = {
+val akkuCpl: Insn = {
     it.advance()
     it.regA.write(it.regA.read().inv())
     it.regF.kN = true
@@ -355,56 +369,56 @@ val akkuCpl: (Cpu) -> Unit = {
 
 // Flags
 
-val scf: (Cpu) -> Unit = {
+val scf: Insn = {
     it.advance()
     it.regF.kN = false
     it.regF.kH = false
     it.regF.kC = true
 }
 
-val ccf: (Cpu) -> Unit = {
+val ccf: Insn = {
     it.advance()
     it.regF.kN = false
     it.regF.kH = false
     it.regF.kC = !it.regF.kC
 }
 
-val imeOn: (Cpu) -> Unit = {
+val imeOn: Insn = {
     it.advance()
     it.imeChangeNextCycle = ImeChange.ON
 }
 
-val imeOff: (Cpu) -> Unit = {
+val imeOff: Insn = {
     it.advance()
     it.imeChangeThisCycle = ImeChange.OFF
 }
 
 // Jumps
 
-fun jumpAbsolute(addr: (Cpu) -> Short): (Cpu) -> Unit = {
+fun jumpAbsolute(addr: CpuOut16): Insn = {
     it.advance()
     it.regPC.write(addr(it))
 }
 
-val jumpRelative: (Cpu) -> Unit = {
+val jumpRelative: Insn = {
     it.regPC.offset(it.memory.read(it.regPC.read().toUnsignedInt() + 1).toInt() + 2)
 }
 
 // Call stack
 
-fun stackPush(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun stackPush(register: CpuReg16): Insn = {
     it.advance()
     it.regSP.decrement(2)
     it.memory.write(it.regSP.read().toUnsignedInt(), register(it).read())
 }
 
-fun stackPop(register: (Cpu) -> IRegister<Short>): (Cpu) -> Unit = {
+fun stackPop(register: CpuReg16): Insn = {
     it.advance()
     register(it).write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)
 }
 
-fun stackCall(addr: (Cpu) -> Short): (Cpu) -> Unit = {
+fun stackCall(addr: CpuOut16): Insn = {
     it.advance()
     val target = addr(it)
     it.backtrace.stackCall(target)
@@ -413,7 +427,7 @@ fun stackCall(addr: (Cpu) -> Short): (Cpu) -> Unit = {
     it.regPC.write(target)
 }
 
-val stackReturn: (Cpu) -> Unit = {
+val stackReturn: Insn = {
     it.backtrace.stackReturn()
     it.regPC.write(it.memory.readShort(it.regSP.read().toUnsignedInt()))
     it.regSP.increment(2)
@@ -421,7 +435,7 @@ val stackReturn: (Cpu) -> Unit = {
 
 // Weird stuff
 
-val offsetStackPointer: (Cpu) -> Unit = {
+val offsetStackPointer: Insn = {
     it.advance()
     val offset = it.readByteAndAdvance().toInt()
     val initial = it.regSP.read().toUnsignedInt()
@@ -433,7 +447,7 @@ val offsetStackPointer: (Cpu) -> Unit = {
     it.regF.kC = op and 0x100 != 0
 }
 
-val loadHlWithOffsetStackPointer: (Cpu) -> Unit = {
+val loadHlWithOffsetStackPointer: Insn = {
     it.advance()
     val offset = it.readByteAndAdvance().toInt()
     val initial = it.regSP.read().toUnsignedInt()
@@ -446,6 +460,6 @@ val loadHlWithOffsetStackPointer: (Cpu) -> Unit = {
     it.regF.kC = op and 0x100 != 0
 }
 
-fun unknownOpcode(opcode: Int): (Cpu) -> Unit = {
+fun unknownOpcode(opcode: Int): Insn = {
     throw UnknownOpcodeException(opcode.toByte())
 }

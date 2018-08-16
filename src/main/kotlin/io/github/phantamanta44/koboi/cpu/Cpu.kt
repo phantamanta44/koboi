@@ -201,7 +201,7 @@ enum class InterruptType(val flag: KMutableProperty1<InterruptRegister, Boolean>
     SERIAL(InterruptRegister::serial, 0x58),
     JOYPAD(InterruptRegister::joypad, 0x60);
 
-    val callVector: (Cpu) -> Unit = { cpu: Cpu -> cpu.regPC.decrement(1) } then stackCall({ vector })
+    val callVector: Insn = { cpu: Cpu -> cpu.regPC.decrement(1) } then stackCall({ vector })
 
 }
 

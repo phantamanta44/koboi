@@ -1,8 +1,9 @@
 package io.github.phantamanta44.koboi.backtrace
 
 import io.github.phantamanta44.koboi.cpu.Cpu
+import io.github.phantamanta44.koboi.cpu.CpuReg16
+import io.github.phantamanta44.koboi.cpu.CpuReg8
 import io.github.phantamanta44.koboi.cpu.FlagRegister
-import io.github.phantamanta44.koboi.cpu.IRegister
 import io.github.phantamanta44.koboi.util.toShortHex
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
@@ -17,7 +18,7 @@ interface IArgument {
 
 open class ArgumentRegister8(registerName: String) : IArgument {
 
-    protected val register: (Cpu) -> IRegister<Byte> = when (registerName) {
+    protected val register: CpuReg8 = when (registerName) {
         "A" -> Cpu::regA
         "F" -> Cpu::regF
         "B" -> Cpu::regB
@@ -38,7 +39,7 @@ open class ArgumentRegister8(registerName: String) : IArgument {
 
 open class ArgumentRegister16(registerName: String) : IArgument {
 
-    protected val register: (Cpu) -> IRegister<Short> = when (registerName) {
+    protected val register: CpuReg16 = when (registerName) {
         "AF" -> Cpu::regAF
         "BC" -> Cpu::regBC
         "DE" -> Cpu::regDE

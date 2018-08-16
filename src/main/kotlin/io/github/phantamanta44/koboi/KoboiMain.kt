@@ -23,6 +23,8 @@ object KoboiConfig {
 
     var logDmaTransfers: Boolean by Delegates.notNull()
 
+    var blarggMode: Boolean by Delegates.notNull()
+
 }
 
 fun main(args: Array<String>) = mainBody {
@@ -36,6 +38,7 @@ fun main(args: Array<String>) = mainBody {
         KoboiConfig.traceBootrom = traceBootrom
         KoboiConfig.logInterrupts = logInterrupts
         KoboiConfig.logDmaTransfers = logDmaTransfers
+        KoboiConfig.blarggMode = blarggMode
         GameEngine.tryInit(romFile)
     }
 }
@@ -57,6 +60,8 @@ class ParsedArgs(parser: ArgParser) {
     val logInterrupts: Boolean by parser.flagging("--log-ints", "-I", help = "Log interrupts at the TRACE level")
 
     val logDmaTransfers: Boolean by parser.flagging("--log-dma", "-j", help = "Log DMA transfers at the TRACE level")
+
+    val blarggMode: Boolean by parser.flagging("--blargg", help = "Enable output from serial IO ports")
 
     val rom: String by parser.positional("ROM", help = "Path to a ROM image of a game cartridge")
 
