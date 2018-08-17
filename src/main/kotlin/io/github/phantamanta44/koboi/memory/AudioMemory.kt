@@ -7,7 +7,7 @@ typealias ManagerRef<T> = (AudioManager) -> T
 typealias ChannelRef<G> = (IAudioInterface) -> IAudioChannel<G>
 typealias ManagerFun = AudioManager.() -> Unit
 
-class Ch1SweepRegister(engine: GameEngine) : BitwiseRegister() {
+class Ch1SweepRegister(engine: GameEngine) : BiDiBitwiseRegister(readableMask = 0b01111111) {
 
     private val sweeper: Sweeper by lazy { engine.audio.c1ToneSweep }
     
@@ -101,11 +101,11 @@ class FreqHighRegister(private val engine: GameEngine,
     : BiDiBitwiseRegister(readableMask = 0b01000000) {
 
     private val lengthCounter: LengthCounter by lazy { lengthCounter(engine.audio) }
-    
+
     private var initial: Boolean by delegateBit(7)
-    
+
     private var respectLength: Boolean by delegateBit(6)
-    
+
     var freqBits: Int by delegateMaskedInt(0b00000111, 0)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
@@ -119,6 +119,19 @@ class FreqHighRegister(private val engine: GameEngine,
 
 }
 
+class Ch3EnableRegister(engine: GameEngine) : BiDiBitwiseRegister(readableMask = 0b10000000) {
+
+    private val generator: IWavePatternAudioGenerator by lazy { engine.audio.audio.channel3.generator }
+
+    var enabled: Boolean by delegateBit(7)
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        super.write(addr, *values, start = start, length = length, direct = direct)
+        generator.enabled = enabled
+    }
+
+}
+
 class Ch3LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
 
     private val lengthCounter: LengthCounter by lazy { engine.audio.c3LengthCounter }
@@ -128,18 +141,24 @@ class Ch3LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
         lengthCounter.length = 256 - value.toInt()
     }
 
+    override fun read(addr: Int, direct: Boolean): Byte = if (direct) super.read(addr, direct) else 0xFF.toByte()
+
     override fun typeAt(addr: Int): String = "RACh3Length"
 
 }
 
-class Ch3WavePatternMemoryArea(engine: GameEngine) : SimpleMemoryArea(16) {
+class Ch3WavePatternMemoryArea(engine: GameEngine, private val enableRegister: Ch3EnableRegister) : SimpleMemoryArea(16) {
 
     private val generator: IWavePatternAudioGenerator by lazy { engine.audio.audio.channel3.generator }
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        super.write(addr, *values, start = start, length = length, direct = direct)
-        System.arraycopy(memory, 0, generator.waveform, 0, 16)
+        if (direct || !enableRegister.enabled) {
+            super.write(addr, *values, start = start, length = length, direct = direct)
+            System.arraycopy(memory, 0, generator.waveform, 0, 16)
+        }
     }
+
+    // TODO weird reading-while-enabled issue
 
     override fun typeAt(addr: Int): String = "RACh3WaveRAM"
 
@@ -153,6 +172,8 @@ class Ch4LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
         super.write(addr, *values, start = start, length = length, direct = direct)
         lengthCounter.length = 64 - value.toInt() and 0b00111111
     }
+
+    override fun read(addr: Int, direct: Boolean): Byte = if (direct) super.read(addr, direct) else 0xFF.toByte()
 
     override fun typeAt(addr: Int): String = "RACh4Length"
 
@@ -242,7 +263,7 @@ class ChannelVolumeRegister(private val engine: GameEngine) : BitwiseRegister() 
 
 }
 
-class AudioKillSwitchRegister(private val engine: GameEngine) : BitwiseRegister(0b10000000) {
+class AudioKillSwitchRegister(private val engine: GameEngine) : BiDiBitwiseRegister(0b10000000, 0b10001111) {
 
     private var enableAudio: Boolean by delegateBit(7)
 

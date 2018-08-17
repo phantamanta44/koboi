@@ -297,7 +297,7 @@ open class ResettableRegister : SingleByteMemoryArea() {
 
 }
 
-class ObservableRegister(private val callback: (Byte) -> Unit) : SingleByteMemoryArea() {
+open class ObservableRegister(private val callback: (Byte) -> Unit) : SingleByteMemoryArea() {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         value = values[0]
@@ -305,6 +305,23 @@ class ObservableRegister(private val callback: (Byte) -> Unit) : SingleByteMemor
     }
 
     override fun typeAt(addr: Int): String = "RObserve"
+
+}
+
+class MaskedObservableRegister(readableMask: Int = 0xFF, callback: (Byte) -> Unit)
+    : ObservableRegister(callback) {
+
+    private val unreadableMask: Int = readableMask.inv() and 0xFF
+
+    override fun read(addr: Int, direct: Boolean): Byte {
+        return if (direct) {
+            super.read(addr, direct)
+        } else {
+            (super.read(addr, direct).toInt() or unreadableMask).toByte()
+        }
+    }
+
+    override fun typeAt(addr: Int): String = "RMaskObserve"
 
 }
 
