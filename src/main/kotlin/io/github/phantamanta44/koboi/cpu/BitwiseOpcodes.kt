@@ -106,7 +106,7 @@ object CbPrefixedOpcodes {
             setBit(0), setBit(1), setBit(2), setBit(3), setBit(4), setBit(5), setBit(6), setBit(7)
     ).flatMap { op ->
         singleByteRegisters.map {
-            { cpu: Cpu -> op({ it.first(cpu) }, { byte -> it.second(cpu, byte) }, cpu.regF) } then idle(it.third)
+            idle(it.third) then { cpu: Cpu -> op({ it.first(cpu) }, { byte -> it.second(cpu, byte) }, cpu.regF) }
         }
     }.toTypedArray()
 

@@ -10,6 +10,7 @@ import io.github.phantamanta44.koboi.memory.LcdControlRegister
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.PrintStream
+import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KMutableProperty1
 
@@ -42,9 +43,10 @@ class Cpu(val memory: IMemoryArea,
 
     var cycleDuration: Long = 238
     private var idleCycles: Int = 0
+    private val opQueue: Queue<Insn> = LinkedList()
 
-    var imeChangeNextCycle: ImeChange = ImeChange.NONE
-    var imeChangeThisCycle: ImeChange = ImeChange.NONE
+    var imeChangeNextInsn: ImeChange = ImeChange.NONE
+    var imeChangeThisInsn: ImeChange = ImeChange.NONE
 
     fun readByte(): Byte = memory.read(regPC.read().toUnsignedInt())
 
@@ -64,8 +66,10 @@ class Cpu(val memory: IMemoryArea,
 
     fun advance(offset: Int = 1) = regPC.increment(offset)
 
+    fun queue(insn: Insn) = opQueue.offer(insn)
+
     fun idle(cycles: Int) {
-        idleCycles += cycles
+        idleCycles += cycles - 1
     }
 
     fun cycle() {
@@ -75,7 +79,10 @@ class Cpu(val memory: IMemoryArea,
                 state = CpuState.NORMAL
             }
         } else if (state == CpuState.HALTED) {
-            if (memIntReq.value != 0.toByte()) state = CpuState.NORMAL
+            if (memIntReq.value.toInt() and memIntEnable.value.toInt() != 0) {
+                state = CpuState.NORMAL
+                println(memIntReq.value.toString(2))
+            }
         }
         if (state == CpuState.NORMAL) cycle0()
     }
@@ -85,28 +92,38 @@ class Cpu(val memory: IMemoryArea,
             if (idleCycles > 0) {
                 --idleCycles
             } else {
-                var doCycle = true
-                if (flagIME) {
-                    for (interrupt in InterruptType.values()) {
-                        if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
-                            interrupt(interrupt)
-                            doCycle = false
+                val queued = opQueue.poll()
+                if (queued != null) {
+                    queued(this)
+                } else {
+                    // check ime flag
+                    if (imeChangeThisInsn == ImeChange.ON) {
+                        flagIME = true
+                    } else if (imeChangeThisInsn == ImeChange.OFF) {
+                        flagIME = false
+                    }
+                    imeChangeThisInsn = imeChangeNextInsn
+                    imeChangeNextInsn = ImeChange.NONE
+
+                    // check interrupts
+                    var doCycle = true
+                    if (flagIME) {
+                        for (interrupt in InterruptType.values()) {
+                            if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
+                                interrupt(interrupt)
+                                doCycle = false
+                            }
                         }
                     }
+
+                    // execute an opcode
+                    if (doCycle) {
+                        val opcode = readByte()
+                        backtrace.accept(opcode)
+                        val op = Opcodes[opcode]
+                        op(this)
+                    }
                 }
-                if (doCycle) {
-                    val opcode = readByte()
-                    backtrace.accept(opcode)
-                    val op = Opcodes[opcode]
-                    op(this)
-                }
-                if (imeChangeThisCycle == ImeChange.ON) {
-                    flagIME = true
-                } else if (imeChangeThisCycle == ImeChange.OFF) {
-                    flagIME = false
-                }
-                imeChangeThisCycle = imeChangeNextCycle
-                imeChangeNextCycle = ImeChange.NONE
             }
         } catch (e: Exception) {
             except(e)

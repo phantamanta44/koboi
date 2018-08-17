@@ -105,9 +105,9 @@ class GameEngine(rom: ByteArray) {
         val cgbPaletteSprite = ColourPaletteSwicher() // FF6A-FF6B sprite colour palettes
 
         // init timer and associated memory
-        val memDivider = ResettableRegister() // FF04 clock divider
-        val memTimerCounter = SingleByteMemoryArea() // FF05 timer counter
-        val memTimerModulo = SingleByteMemoryArea() // FF06 timer modulo
+        val memDivider = TimerDividerRegister(this) // FF04 clock divider
+        val memTimerCounter = TimerCounterRegister(this) // FF05 timer counter
+        val memTimerModulo = TimerModuloRegister(this, memTimerCounter) // FF06 timer modulo
         clock = Timer(memDivider, memTimerCounter, memTimerModulo, memIntReq, this)
         val memTimerControl = TimerControlRegister(clock) // FF07 timer control
 
@@ -326,9 +326,9 @@ class GameEngine(rom: ByteArray) {
 
     private fun gameLoop() {
         input.cycle()
+        clock.cycle()
         cpu.cycle()
         if (cpu.doubleClock) cpu.cycle()
-        clock.cycle()
         ppu.cycle()
         audio.cycle()
         dma.cycle()

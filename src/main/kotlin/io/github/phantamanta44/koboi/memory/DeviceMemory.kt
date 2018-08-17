@@ -1,5 +1,6 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.cpu.Timer
 
 class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : IMemoryArea {
@@ -52,31 +53,52 @@ class ClockSpeedRegister : BitwiseRegister(0b00000001) {
 
 }
 
+class TimerDividerRegister(engine: GameEngine) : ResettableRegister() {
+
+    private val timer: Timer by lazy { engine.clock }
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        value = 0
+        timer.clearCounters()
+    }
+
+}
+
+class TimerCounterRegister(engine: GameEngine) : SingleByteMemoryArea() {
+
+    private val timer: Timer by lazy { engine.clock }
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if (direct || timer.timerReset == -1) {
+            value = values[0]
+        } else if (timer.timerReset == 4) {
+            value = values[0]
+            timer.timerReset = 0
+        }
+    }
+
+}
+
+class TimerModuloRegister(engine: GameEngine, private val counter: TimerCounterRegister) : SingleByteMemoryArea() {
+
+    private val timer: Timer by lazy { engine.clock }
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        value = values[0]
+        if (timer.timerReset == 0) counter.value = value
+    }
+
+}
+
 class TimerControlRegister(private val timer: Timer) : BitwiseRegister() {
 
     private var timerEnabled: Boolean by delegateBit(2)
 
-    private var clockUpper: Boolean by delegateBit(1)
-
-    private var clockLower: Boolean by delegateBit(0)
+    private var clock: Int by delegateMaskedInt(0b00000011, 0)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         value = values[0]
-        if (timerEnabled) {
-            timer.enabled = true
-            timer.tickRate = when (clockUpper) {
-                false -> when (clockLower) {
-                    false -> Timer.TimerTickRate.R_4096_HZ
-                    true -> Timer.TimerTickRate.R_262144_HZ
-                }
-                true -> when (clockLower) {
-                    false -> Timer.TimerTickRate.R_65536_HZ
-                    true -> Timer.TimerTickRate.R_16384_HZ
-                }
-            }
-        } else {
-            timer.enabled = false
-        }
+        timer.update(clock, timerEnabled)
     }
 
     override fun typeAt(addr: Int): String = "TimerCtrl"

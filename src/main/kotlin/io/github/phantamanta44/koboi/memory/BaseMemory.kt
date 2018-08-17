@@ -287,7 +287,7 @@ open class BiDiBitwiseRegister(writableMask: Int = 0xFF, readableMask: Int) : Bi
     }
 }
 
-class ResettableRegister : SingleByteMemoryArea() {
+open class ResettableRegister : SingleByteMemoryArea() {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         value = if (direct) values[0] else 0

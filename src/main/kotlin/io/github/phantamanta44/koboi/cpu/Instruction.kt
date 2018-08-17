@@ -16,11 +16,11 @@ typealias CpuIn8 = (Cpu) -> (Byte) -> Unit
 typealias CpuIn16 = (Cpu) -> (Short) -> Unit
 typealias CpuInInt = (Cpu) -> (Int) -> Unit
 
-infix fun (Insn).then(o: Insn): Insn = { this(it); o(it) }
+infix fun (Insn).then(o: Insn): Insn = { this(it); it.queue(o) }
 
 fun advance(count: Int = 1): Insn = { it.advance(count) }
 
-fun idle(cycles: Int): Insn = { it.idle(cycles - 1) }
+fun idle(cycles: Int): Insn = { it.idle(cycles) }
 
 infix fun <T : Number> ((Cpu) -> T).into(dest: (Cpu) -> (T) -> Unit): Insn = {
     it.advance()
@@ -385,12 +385,12 @@ val ccf: Insn = {
 
 val imeOn: Insn = {
     it.advance()
-    it.imeChangeNextCycle = ImeChange.ON
+    it.imeChangeNextInsn = ImeChange.ON
 }
 
 val imeOff: Insn = {
     it.advance()
-    it.imeChangeThisCycle = ImeChange.OFF
+    it.imeChangeThisInsn = ImeChange.OFF
 }
 
 // Jumps
