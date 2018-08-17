@@ -8,6 +8,9 @@ import io.github.phantamanta44.koboi.backtrace.BacktraceDetail
 import java.io.File
 import java.time.Instant
 import kotlin.properties.Delegates
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.memberProperties
 
 object KoboiConfig {
 
@@ -23,7 +26,13 @@ object KoboiConfig {
 
     var logDmaTransfers: Boolean by Delegates.notNull()
 
+    var logTimer: Boolean by Delegates.notNull()
+
     var blarggMode: Boolean by Delegates.notNull()
+
+    fun <T>set(prop: KProperty1<KoboiConfig, T>, value: T) {
+        (prop as KMutableProperty1<KoboiConfig, T>).set(this, value)
+    }
 
 }
 
@@ -32,13 +41,10 @@ fun main(args: Array<String>) = mainBody {
         val romFile = File(rom)
         if (!romFile.exists()) throw SystemExitException("specified ROM file is nil", 1)
         Loggr.setLevel(logLevel)
-        KoboiConfig.backtrace = backtrace
-        KoboiConfig.fullBacktrace = fullBacktrace
-        KoboiConfig.debugShellOnCrash = debugShellOnCrash
-        KoboiConfig.traceBootrom = traceBootrom
-        KoboiConfig.logInterrupts = logInterrupts
-        KoboiConfig.logDmaTransfers = logDmaTransfers
-        KoboiConfig.blarggMode = blarggMode
+        KoboiConfig::class.memberProperties.forEach {
+            val prop = ParsedArgs::class.memberProperties.find { p -> p.name == it.name }!!
+            KoboiConfig.set(it, prop.get(this))
+        }
         GameEngine.tryInit(romFile)
     }
 }
@@ -61,6 +67,8 @@ class ParsedArgs(parser: ArgParser) {
 
     val logDmaTransfers: Boolean by parser.flagging("--log-dma", "-j", help = "Log DMA transfers at the TRACE level")
 
+    val logTimer: Boolean by parser.flagging("--log-timer", "-C", help = "Log timer at the TRACE level")
+
     val blarggMode: Boolean by parser.flagging("--blargg", help = "Enable output from serial IO ports")
 
     val rom: String by parser.positional("ROM", help = "Path to a ROM image of a game cartridge")
@@ -69,6 +77,7 @@ class ParsedArgs(parser: ArgParser) {
 
 object Loggr {
 
+    var engine: GameEngine? = null
     private var effectiveLevel = LogLevel.INFO
 
     enum class LogLevel(val prefix: String, val symbol: String) {
@@ -77,7 +86,13 @@ object Loggr {
 
     private fun doPrint(level: LogLevel, msg: Any) {
         if (level.ordinal >= effectiveLevel.ordinal) {
-            println("${Instant.now()} ${level.symbol} ${level.prefix} :: $msg")
+            engine.let {
+                if (it != null) {
+                    println("${Instant.now()}@${it.gameTick} ${level.symbol} ${level.prefix} :: $msg")
+                } else {
+                    println("${Instant.now()} ${level.symbol} ${level.prefix} :: $msg")
+                }
+            }
         }
     }
     

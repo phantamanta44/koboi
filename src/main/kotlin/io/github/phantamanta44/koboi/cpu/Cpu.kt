@@ -44,6 +44,7 @@ class Cpu(val memory: IMemoryArea,
     var cycleDuration: Long = 238
     private var idleCycles: Int = 0
     private val opQueue: Queue<Insn> = LinkedList()
+    private var opcode: Byte = 0
 
     var imeChangeNextInsn: ImeChange = ImeChange.NONE
     var imeChangeThisInsn: ImeChange = ImeChange.NONE
@@ -81,7 +82,6 @@ class Cpu(val memory: IMemoryArea,
         } else if (state == CpuState.HALTED) {
             if (memIntReq.value.toInt() and memIntEnable.value.toInt() != 0) {
                 state = CpuState.NORMAL
-                println(memIntReq.value.toString(2))
             }
         }
         if (state == CpuState.NORMAL) cycle0()
@@ -112,22 +112,25 @@ class Cpu(val memory: IMemoryArea,
                             if (interrupt.flag.get(memIntReq) && interrupt.flag.get(memIntEnable)) {
                                 interrupt(interrupt)
                                 doCycle = false
+                                break
                             }
                         }
                     }
 
                     // execute an opcode
                     if (doCycle) {
-                        val opcode = readByte()
-                        backtrace.accept(opcode)
-                        val op = Opcodes[opcode]
-                        op(this)
+                        opcode = readByte()
+                        Opcodes[opcode](this)
                     }
                 }
             }
         } catch (e: Exception) {
             except(e)
         }
+    }
+
+    fun trace() {
+        backtrace.accept(opcode)
     }
 
     fun stop() {
@@ -150,7 +153,8 @@ class Cpu(val memory: IMemoryArea,
         if (KoboiConfig.logInterrupts) Loggr.trace("Calling interrupt vector for $interrupt")
         interrupt.flag.set(memIntReq, false)
         flagIME = false
-        interrupt.callVector(this)
+        idle(19)
+        queue({ interrupt.callVector(this) })
     }
 
     private fun except(e: Exception) {
@@ -218,7 +222,12 @@ enum class InterruptType(val flag: KMutableProperty1<InterruptRegister, Boolean>
     SERIAL(InterruptRegister::serial, 0x58),
     JOYPAD(InterruptRegister::joypad, 0x60);
 
-    val callVector: Insn = { cpu: Cpu -> cpu.regPC.decrement(1) } then stackCall({ vector })
+    val callVector: Insn = {
+        it.backtrace.stackCall(vector)
+        it.regSP.decrement(2)
+        it.memory.write(it.regSP.read().toUnsignedInt(), it.regPC.read())
+        it.regPC.write(vector)
+    }
 
 }
 

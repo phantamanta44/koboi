@@ -196,7 +196,7 @@ class Ch4ControlRegister(private val engine: GameEngine) : BiDiBitwiseRegister(r
 
 }
 
-class VInRegister() : BitwiseRegister() {
+class VInRegister : BitwiseRegister() {
 
     // NO-OP
 

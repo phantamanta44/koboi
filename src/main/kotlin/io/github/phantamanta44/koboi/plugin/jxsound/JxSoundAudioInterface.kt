@@ -97,8 +97,8 @@ class JxChannel<out G : JxAudioProducer>(freq: Int, override val generator: G) :
     }
 
     fun kill() {
+        audioSink.drain()
         audioSink.stop()
-        audioSink.flush()
         audioSink.close()
     }
 

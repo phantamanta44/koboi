@@ -48,6 +48,7 @@ class GameEngine(rom: ByteArray) {
     val clock: Timer
     val input: InputManager
 
+    var gameTick: Long = 0L
     var testOutput: String = ""
 
     init { // TODO distinguish gb, cgb, whatever else
@@ -150,7 +151,7 @@ class GameEngine(rom: ByteArray) {
         audio = AudioManager(audioIface, clock,
                 memAudio1FreqLo, memAudio1FreqHi,
                 memAudio2FreqLo, memAudio2FreqHi,
-                memAudio3FreqLo, memAudio3FreqHi, memAudio3WavePattern,
+                memAudio3FreqLo, memAudio3FreqHi,
                 memAudioKillSwitch)
 
         // init input and associated memory
@@ -309,6 +310,7 @@ class GameEngine(rom: ByteArray) {
     }
 
     fun begin() {
+        Loggr.engine = this
         try {
             ppu.start()
             while (cpu.alive.get()) gameLoop()
@@ -326,14 +328,19 @@ class GameEngine(rom: ByteArray) {
 
     private fun gameLoop() {
         input.cycle()
-        clock.cycle()
-        cpu.cycle()
-        if (cpu.doubleClock) cpu.cycle()
+        speedDependentCycle()
+        if (cpu.doubleClock) speedDependentCycle()
         ppu.cycle()
         audio.cycle()
         dma.cycle()
 //        throttleThread(238L) // TODO figure out what's wrong with this
         // TODO figure out why the main thread sometimes randomly freezes
+        ++gameTick
+    }
+
+    private fun speedDependentCycle() {
+        clock.cycle()
+        cpu.cycle()
     }
 
 }

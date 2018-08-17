@@ -1,9 +1,12 @@
 package io.github.phantamanta44.koboi.cpu
 
 import io.github.phantamanta44.koboi.GameEngine
+import io.github.phantamanta44.koboi.KoboiConfig
+import io.github.phantamanta44.koboi.Loggr
 import io.github.phantamanta44.koboi.memory.InterruptRegister
 import io.github.phantamanta44.koboi.memory.SingleByteMemoryArea
 import io.github.phantamanta44.koboi.memory.TimerDividerRegister
+import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 class Timer(private val memDivider: TimerDividerRegister, private val memTimerCounter: SingleByteMemoryArea,
@@ -30,36 +33,41 @@ class Timer(private val memDivider: TimerDividerRegister, private val memTimerCo
 
     private fun testGlobalTimer(bit: Long): Boolean = globalTimer and bit != 0L
 
-    private fun testNextGlobalTimer(bit: Long): Boolean = (globalTimer + 1) and bit != 0L
-
     fun cycle() {
         checkDivider()
         if (timerReset > -1) {
             if (--timerReset == 0) {
                 memTimerCounter.value = memTimerModulo.value
-                memIntReq.timer = true
+                if (KoboiConfig.logTimer) {
+                    Loggr.trace("Timer reloaded with ${memTimerCounter.value.toUnsignedHex()}")
+                }
             }
         }
-        if (enabled && testGlobalTimer(tickRate.timerBit) && !testNextGlobalTimer(tickRate.timerBit)) {
-            incTimer()
+        if (enabled && testGlobalTimer(tickRate.timerBit)) {
+            ++globalTimer
+            if (!testGlobalTimer(tickRate.timerBit)) incTimer()
+        } else {
+            ++globalTimer
         }
-        ++globalTimer
     }
 
     private fun checkDivider() {
-        if (cpu.doubleClock) {
-            if (testGlobalTimer(0x80)) ++memDivider.value
-        } else if (testGlobalTimer(0x40)) {
-            ++memDivider.value
-        }
+        if (testGlobalTimer(0x40)) ++memDivider.value
     }
 
     private fun incTimer() {
         if (memTimerCounter.value.toUnsignedInt() == 0xFF) {
             memTimerCounter.value = 0
+            memIntReq.timer = true // I have no idea why this isn't in the timerReset check
             timerReset = 4
+            if (KoboiConfig.logTimer) {
+                Loggr.trace("Timer overflowed to 0.")
+            }
         } else {
             ++memTimerCounter.value
+            if (KoboiConfig.logTimer) {
+                Loggr.trace("Timer incremented to ${memTimerCounter.value.toUnsignedHex()}.")
+            }
         }
     }
 
@@ -75,7 +83,6 @@ class Timer(private val memDivider: TimerDividerRegister, private val memTimerCo
     }
 
     fun clearCounters() {
-        checkDivider()
         if (enabled && testGlobalTimer(tickRate.timerBit)) incTimer()
         globalTimer = 0
     }
