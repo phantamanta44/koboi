@@ -18,10 +18,12 @@ class Backtrace(private val cpu: Cpu) {
                 stackFrame.call(cpu, insnPtr, opcode, if (KoboiConfig.backtrace.fullTrace) CpuFreeze(cpu) else null)
             }
         }
+        cpu.engine.debugSession?.onCpuExecute(opcode)
     }
 
     fun stackCall(addr: Short) {
         if (KoboiConfig.backtrace.enableBacktrace) stackFrame = StackFrame(stackFrame, addr)
+        cpu.engine.debugSession?.onCpuCall(addr)
     }
 
     fun stackReturn() {
@@ -33,6 +35,7 @@ class Backtrace(private val cpu: Cpu) {
                 KoboiConfig.backtrace = BacktraceDetail.NONE
             }
         }
+        cpu.engine.debugSession?.onCpuReturn()
     }
 
 }

@@ -32,6 +32,12 @@ interface IMemoryArea {
 
 }
 
+abstract class DirectObservableMemoryArea : IMemoryArea {
+
+    open var directObserver: IDirectMemoryObserver = IDirectMemoryObserver.Noop()
+
+}
+
 class DirectMemoryRange(val memory: IMemoryArea, val firstAddr: Int, lastAddr: Int) : IMemoryRange {
 
     override val length: Int = lastAddr - firstAddr
@@ -63,5 +69,19 @@ class MemoryRangeIterator(private val range: IMemoryRange) : ByteIterator() {
     override fun hasNext(): Boolean = index < range.length
 
     override fun nextByte(): Byte = range[index++]
+
+}
+
+interface IDirectMemoryObserver {
+
+    fun onMemMutate(addr: Int, length: Int)
+
+    class Noop : IDirectMemoryObserver {
+
+        override fun onMemMutate(addr: Int, length: Int) {
+            // NO-OP
+        }
+
+    }
 
 }

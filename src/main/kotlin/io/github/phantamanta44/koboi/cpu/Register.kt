@@ -1,5 +1,7 @@
 package io.github.phantamanta44.koboi.cpu
 
+import io.github.phantamanta44.koboi.GameEngine
+import io.github.phantamanta44.koboi.debug.CpuProperty
 import io.github.phantamanta44.koboi.util.*
 
 interface IRegister<T : Number> {
@@ -22,12 +24,15 @@ interface IRegister<T : Number> {
 
 }
 
-open class SingleByteRegister(protected var value: Byte = 0) : IRegister<Byte> {
+open class SingleByteRegister(protected val engine: GameEngine, private val prop: CpuProperty) : IRegister<Byte> {
+
+    protected var value: Byte = 0
 
     override fun read(): Byte = value
 
     override fun write(value: Byte) {
         this.value = value
+        engine.debugSession?.onCpuMutate(prop)
     }
 
     override fun increment(offset: Int) {
@@ -59,12 +64,15 @@ class RegisterPair(private val high: IRegister<Byte>, private val low: IRegister
 
 }
 
-class SingleShortRegister(private var value: Short = 0) : IRegister<Short> {
+class SingleShortRegister(private val engine: GameEngine, private val prop: CpuProperty) : IRegister<Short> {
+
+    private var value: Short = 0
 
     override fun read(): Short = value
 
     override fun write(value: Short) {
         this.value = value
+        engine.debugSession?.onCpuMutate(prop)
     }
 
     override fun increment(offset: Int) {
@@ -77,7 +85,7 @@ class SingleShortRegister(private var value: Short = 0) : IRegister<Short> {
 
 }
 
-class FlagRegister(initialValue: Byte = 0) : SingleByteRegister(initialValue) {
+class FlagRegister(engine: GameEngine) : SingleByteRegister(engine, CpuProperty.REG_F) {
 
     var kZ: Boolean
         get() = hasFlag(7)
@@ -101,6 +109,7 @@ class FlagRegister(initialValue: Byte = 0) : SingleByteRegister(initialValue) {
 
     private fun setFlag(index: Int, flag: Boolean) {
         write((if (flag) (value.toInt() or (1 shl index)) else (value.toInt() and (1 shl index).inv())).toByte())
+        engine.debugSession?.onCpuMutate(CpuProperty.REG_F)
     }
 
     override fun write(value: Byte) {

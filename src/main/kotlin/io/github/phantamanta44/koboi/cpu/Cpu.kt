@@ -1,12 +1,15 @@
 package io.github.phantamanta44.koboi.cpu
 
+import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.KoboiConfig
 import io.github.phantamanta44.koboi.Loggr
 import io.github.phantamanta44.koboi.backtrace.Backtrace
+import io.github.phantamanta44.koboi.debug.CpuProperty
 import io.github.phantamanta44.koboi.memory.ClockSpeedRegister
 import io.github.phantamanta44.koboi.memory.IMemoryArea
 import io.github.phantamanta44.koboi.memory.InterruptRegister
 import io.github.phantamanta44.koboi.memory.LcdControlRegister
+import io.github.phantamanta44.koboi.util.PropDel
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.PrintStream
@@ -14,21 +17,23 @@ import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.reflect.KMutableProperty1
 
-class Cpu(val memory: IMemoryArea,
+class Cpu(val engine: GameEngine,
           val memIntReq: InterruptRegister, private val memIntEnable: InterruptRegister,
           private val memClockSpeed: ClockSpeedRegister, private val memLcdControl: LcdControlRegister) {
 
-    val regA: IRegister<Byte> = SingleByteRegister()
-    val regF: FlagRegister = FlagRegister()
-    val regB: IRegister<Byte> = SingleByteRegister()
-    val regC: IRegister<Byte> = SingleByteRegister()
-    val regD: IRegister<Byte> = SingleByteRegister()
-    val regE: IRegister<Byte> = SingleByteRegister()
-    val regH: IRegister<Byte> = SingleByteRegister()
-    val regL: IRegister<Byte> = SingleByteRegister()
-    val regSP: IRegister<Short> = SingleShortRegister()
-    val regPC: IRegister<Short> = SingleShortRegister()
-    var flagIME: Boolean = false
+    val memory: IMemoryArea by lazy { engine.memory }
+
+    val regA: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_A)
+    val regF: FlagRegister = FlagRegister(engine)
+    val regB: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_B)
+    val regC: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_C)
+    val regD: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_D)
+    val regE: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_E)
+    val regH: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_H)
+    val regL: IRegister<Byte> = SingleByteRegister(engine, CpuProperty.REG_L)
+    val regSP: IRegister<Short> = SingleShortRegister(engine, CpuProperty.REG_SP)
+    val regPC: IRegister<Short> = SingleShortRegister(engine, CpuProperty.REG_PC)
+    var flagIME: Boolean by PropDel.observe(false) { engine.debugSession?.onCpuMutate(CpuProperty.FLAG_IME) }
 
     val regAF: IRegister<Short> = RegisterPair(regA, regF)
     val regBC: IRegister<Short> = RegisterPair(regB, regC)
@@ -38,8 +43,8 @@ class Cpu(val memory: IMemoryArea,
     val backtrace = Backtrace(this)
 
     var alive: AtomicBoolean = AtomicBoolean(true)
-    var state: CpuState = CpuState.NORMAL
-    var doubleClock: Boolean = false
+    var state: CpuState by PropDel.observe(CpuState.NORMAL) { engine.debugSession?.onCpuMutate(CpuProperty.STATE) }
+    var doubleClock: Boolean by PropDel.observe(false) { engine.debugSession?.onCpuMutate(CpuProperty.CLOCK_SPEED) }
 
     var cycleDuration: Long = 238
     private var idleCycles: Int = 0
@@ -129,9 +134,7 @@ class Cpu(val memory: IMemoryArea,
         }
     }
 
-    fun trace() {
-        backtrace.accept(opcode)
-    }
+    fun trace() = backtrace.accept(opcode)
 
     fun stop() {
         if (!doubleClock && memClockSpeed.prepareSpeedSwitch) {
@@ -151,6 +154,7 @@ class Cpu(val memory: IMemoryArea,
 
     private fun interrupt(interrupt: InterruptType) {
         if (KoboiConfig.logInterrupts) Loggr.trace("Calling interrupt vector for $interrupt")
+        engine.debugSession?.onInterruptExecuted(interrupt)
         interrupt.flag.set(memIntReq, false)
         flagIME = false
         idle(19)

@@ -3,21 +3,25 @@ package io.github.phantamanta44.koboi
 import io.github.phantamanta44.koboi.audio.AudioManager
 import io.github.phantamanta44.koboi.audio.IAudioInterface
 import io.github.phantamanta44.koboi.cpu.*
+import io.github.phantamanta44.koboi.debug.DebugTarget
+import io.github.phantamanta44.koboi.debug.IDebugProvider
+import io.github.phantamanta44.koboi.debug.IDebugSession
 import io.github.phantamanta44.koboi.graphics.DisplayController
 import io.github.phantamanta44.koboi.graphics.GbRenderer
 import io.github.phantamanta44.koboi.graphics.GbcRenderer
 import io.github.phantamanta44.koboi.input.InputManager
 import io.github.phantamanta44.koboi.memory.*
+import io.github.phantamanta44.koboi.plugin.artemis.ArtemisDebugger
 import io.github.phantamanta44.koboi.plugin.glfrontend.GlDisplay
 import io.github.phantamanta44.koboi.plugin.jinput.JInputInputProvider
 import io.github.phantamanta44.koboi.plugin.jxsound.JxSoundAudioInterface
-import io.github.phantamanta44.koboi.util.DebugShell
 import io.github.phantamanta44.koboi.util.GameboyType
+import io.github.phantamanta44.koboi.util.PropDel
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import java.io.File
 
-class GameEngine(rom: ByteArray) {
+class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
 
     companion object {
 
@@ -40,13 +44,19 @@ class GameEngine(rom: ByteArray) {
 
     }
 
-    val memory: IMemoryArea
+    val memory: DirectObservableMemoryArea
     val cpu: Cpu
     val dma: DmaTransferHandler
     val ppu: DisplayController
     val audio: AudioManager
     val clock: Timer
     val input: InputManager
+
+    private val debug: IDebugProvider
+    private var debugTarget: DebugTarget? = null
+    private var _debugSession: IDebugSession? = null
+
+    val debugSession: IDebugSession? by PropDel.r(::_debugSession)
 
     var gameTick: Long = 0L
     var testOutput: String = ""
@@ -289,9 +299,10 @@ class GameEngine(rom: ByteArray) {
 
                 memIntEnable // FFFF interrupt enable
         ), bootrom, ::bootromUnmapped)
+        memory.directObserver = this
 
         // create cpu
-        cpu = Cpu(memory, memIntReq, memIntEnable, memClockSpeed, memLcdControl)
+        cpu = Cpu(this, memIntReq, memIntEnable, memClockSpeed, memLcdControl)
         if (KoboiConfig.traceBootrom) cpu.backtrace.enabled = true
 
         // create ppu
@@ -302,6 +313,9 @@ class GameEngine(rom: ByteArray) {
                     cgbPaletteBg, cgbPaletteSprite)
         }
         ppu = DisplayController(cpu, scanLineRenderer, display, memLcdControl, memLcdStatus, memScanLine)
+
+        // create debug provider
+        debug = ArtemisDebugger()
     }
 
     private fun bootromUnmapped() {
@@ -309,20 +323,30 @@ class GameEngine(rom: ByteArray) {
         cpu.backtrace.enabled = true
     }
 
+    override fun onMemMutate(addr: Int, length: Int) {
+        _debugSession?.onMemoryMutate(addr, length)
+    }
+
     fun begin() {
         Loggr.engine = this
         try {
             ppu.start()
-            while (cpu.alive.get()) gameLoop()
-            throw EmulationException(cpu, IllegalStateException("CPU operation abruptly halted!"))
+            if (KoboiConfig.debug) startDebugSession()
+            while (cpu.alive.get()) {
+                debugTarget?.onBeforeGameLoop()
+                gameLoop()
+            }
+            Loggr.info("Cpu killed; freeing resources...")
+            if (debugTarget != null) endDebugSession()
+            ppu.kill()
+            audio.kill()
+            Loggr.info("Exiting!")
         } catch (e: EmulationException) {
             ppu.kill()
             audio.kill()
             e.printStackTrace()
             e.printCpuState()
-            if (KoboiConfig.debugShellOnCrash) {
-                DebugShell(this).begin()
-            }
+            if (_debugSession != null && KoboiConfig.debugOnCrash) startDebugSession()
         }
     }
 
@@ -334,13 +358,33 @@ class GameEngine(rom: ByteArray) {
         audio.cycle()
         dma.cycle()
 //        throttleThread(238L) // TODO figure out what's wrong with this
-        // TODO figure out why the main thread sometimes randomly freezes
         ++gameTick
     }
 
     private fun speedDependentCycle() {
         clock.cycle()
         cpu.cycle()
+    }
+
+    private fun startDebugSession() {
+        Loggr.info("Starting debug session!")
+        DebugTarget(this).let {
+            debugTarget = it
+            debug.startDebugging(it).let { sess ->
+                _debugSession = sess
+                it.session = sess
+            }
+        }
+    }
+
+    fun endDebugSession() {
+        debugTarget?.let {
+            Loggr.info("Ending debug session!")
+            debugTarget = null
+            it.unfreeze()
+            _debugSession?.kill()
+            _debugSession = null
+        }
     }
 
 }

@@ -1,5 +1,7 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.util.PropDel
+
 class LcdControlRegister : BitwiseRegister() {
 
     var lcdDisplayEnable: Boolean by delegateBit(7)
@@ -45,7 +47,7 @@ class LcdStatusRegister : BitwiseRegister(0b01111100) {
 class ColourPaletteSwicher {
 
     private val memory: ByteArray = ByteArray(64)
-    private var active: Int = 0
+    private var active: Int by PropDel.observe(0) { accessMemory.directObserver.onMemMutate(0, 1) }
 
     val controlMemory: PaletteControlRegister = PaletteControlRegister()
     val accessMemory: PaletteAccessRegister = PaletteAccessRegister()
@@ -72,7 +74,7 @@ class ColourPaletteSwicher {
 
     }
 
-    inner class PaletteAccessRegister : IMemoryArea {
+    inner class PaletteAccessRegister : DirectObservableMemoryArea() {
 
         override val length: Int
             get() = 1
@@ -83,6 +85,7 @@ class ColourPaletteSwicher {
 
         override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
             memory[active] = values[0]
+            directObserver.onMemMutate(0, 1)
             if (controlMemory.autoIncrement && !direct) {
                 active = (active + 1) % 64
                 controlMemory.value = ((controlMemory.value.toInt() and 0b11000000) or active).toByte()

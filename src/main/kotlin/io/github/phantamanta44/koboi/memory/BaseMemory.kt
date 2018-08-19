@@ -1,10 +1,11 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.util.PropDel
 import kotlin.math.min
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
 
-open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
+open class SimpleMemoryArea(final override val length: Int) : DirectObservableMemoryArea() {
 
     protected val memory: ByteArray = ByteArray(length)
 
@@ -14,6 +15,7 @@ open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         System.arraycopy(values, start, memory, addr, length)
+        directObserver.onMemMutate(addr, length)
     }
 
     override fun typeAt(addr: Int): String = "Simple[$length]"
@@ -31,7 +33,7 @@ open class SimpleMemoryArea(final override val length: Int) : IMemoryArea {
 
 }
 
-open class ControlMemoryArea(override val length: Int, private val callback: (Byte) -> Unit) : IMemoryArea {
+open class ControlMemoryArea(override val length: Int, private val callback: (Byte) -> Unit) : DirectObservableMemoryArea() {
 
     override fun read(addr: Int, direct: Boolean): Byte = 0xFF.toByte()
 
@@ -45,7 +47,9 @@ open class ControlMemoryArea(override val length: Int, private val callback: (By
 
 }
 
-class ToggleableMemoryArea(val backing: IMemoryArea, var state: Boolean) : IMemoryArea {
+class ToggleableMemoryArea(val backing: DirectObservableMemoryArea, var state: Boolean) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(backing::directObserver)
 
     override val length: Int
         get() = backing.length
@@ -75,7 +79,9 @@ class ToggleableMemoryArea(val backing: IMemoryArea, var state: Boolean) : IMemo
 
 }
 
-class EchoMemoryArea(private val delegate: IMemoryArea, override val length: Int) : IMemoryArea {
+class EchoMemoryArea(private val delegate: DirectObservableMemoryArea, override val length: Int) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(delegate::directObserver)
 
     override fun read(addr: Int, direct: Boolean): Byte = delegate.read(addr, direct)
 
@@ -89,7 +95,9 @@ class EchoMemoryArea(private val delegate: IMemoryArea, override val length: Int
 
 }
 
-class DisjointMemoryArea(private val readDelegate: IMemoryArea, private val writeDelegate: IMemoryArea) : IMemoryArea {
+class DisjointMemoryArea(private val readDelegate: DirectObservableMemoryArea, private val writeDelegate: IMemoryArea) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(readDelegate::directObserver)
 
     override val length: Int
         get() = readDelegate.length
@@ -112,7 +120,7 @@ class DisjointMemoryArea(private val readDelegate: IMemoryArea, private val writ
 
 }
 
-class UnusableMemoryArea(override val length: Int) : IMemoryArea {
+class UnusableMemoryArea(override val length: Int) : DirectObservableMemoryArea() {
 
     override fun read(addr: Int, direct: Boolean): Byte = 0xFF.toByte()
 
@@ -126,18 +134,19 @@ class UnusableMemoryArea(override val length: Int) : IMemoryArea {
 
 }
 
-class MappedMemoryArea(vararg memSegments: IMemoryArea) : IMemoryArea {
+class MappedMemoryArea(vararg memSegments: DirectObservableMemoryArea) : DirectObservableMemoryArea() {
 
-    private val segments: List<Pair<Int, IMemoryArea>>
+    private val segments: List<Pair<Int, DirectObservableMemoryArea>>
     private val indexMappings: IntArray = memSegments.withIndex()
             .flatMap { seg -> (1..seg.value.length).map { seg.index } }
             .toIntArray()
     override val length: Int
 
     init {
-        val segList = mutableListOf<Pair<Int, IMemoryArea>>()
+        val segList = mutableListOf<Pair<Int, DirectObservableMemoryArea>>()
         var lenAgg = 0
         for (segment in memSegments) {
+            segment.directObserver = MappedSegmentObserver(lenAgg)
             segList.add(lenAgg to segment)
             lenAgg += segment.length
         }
@@ -187,16 +196,24 @@ class MappedMemoryArea(vararg memSegments: IMemoryArea) : IMemoryArea {
 
     }
 
+    private inner class MappedSegmentObserver(private val addrOffset: Int) : IDirectMemoryObserver {
+
+        override fun onMemMutate(addr: Int, length: Int) {
+            directObserver.onMemMutate(addr + addrOffset, length)
+        }
+
+    }
+
 }
 
-open class SingleByteMemoryArea : IMemoryArea {
+open class SingleByteMemoryArea : DirectObservableMemoryArea() {
 
     override val length: Int
         get() = 1
 
     private val range: IMemoryRange = SingleByteMemoryRange()
 
-    var value: Byte = 0
+    var value: Byte by PropDel.observe(0.toByte()) { directObserver.onMemMutate(0, 1) }
 
     override fun read(addr: Int, direct: Boolean): Byte = value // don't even bother validating args
 

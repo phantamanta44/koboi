@@ -1,7 +1,11 @@
 package io.github.phantamanta44.koboi.memory
 
-class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray,
-               private val unmapCallback: () -> Unit) : IMemoryArea {
+import io.github.phantamanta44.koboi.util.PropDel
+
+class GbMemory(private val mainMemory: DirectObservableMemoryArea, private val bootrom: ByteArray,
+               private val unmapCallback: () -> Unit) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(mainMemory::directObserver)
 
     override val length: Int
         get() = mainMemory.length
@@ -21,6 +25,7 @@ class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArr
             // assumes that writes only occur entirely within bootrom or entirely outside
             if (addr < bootrom.size) {
                 System.arraycopy(values, start, bootrom, addr, length)
+                directObserver.onMemMutate(addr, length)
                 return
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom
@@ -52,8 +57,10 @@ class GbMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArr
 
 }
 
-class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteArray,
-                private val unmapCallback: () -> Unit) : IMemoryArea {
+class GbcMemory(private val mainMemory: DirectObservableMemoryArea, private val bootrom: ByteArray,
+                private val unmapCallback: () -> Unit) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(mainMemory::directObserver)
 
     override val length: Int
         get() = mainMemory.length
@@ -77,6 +84,7 @@ class GbcMemory(private val mainMemory: IMemoryArea, private val bootrom: ByteAr
             // assumes that writes only occur entirely within bootrom or entirely outside
             if (addr < bootrom.size && (addr < 0x100 || addr >= 0x200)) {
                 System.arraycopy(values, start, bootrom, addr, length)
+                directObserver.onMemMutate(addr, length)
                 return
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom

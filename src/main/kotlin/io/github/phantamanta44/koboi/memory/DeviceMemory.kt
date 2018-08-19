@@ -3,14 +3,17 @@ package io.github.phantamanta44.koboi.memory
 import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.cpu.Timer
 
-class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : IMemoryArea {
+class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : DirectObservableMemoryArea() {
 
     override fun read(addr: Int, direct: Boolean): Byte = rom[start + addr]
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = StaticRomRange(firstAddr, lastAddr)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        if (direct) System.arraycopy(values, start, rom, this.start + addr, length)
+        if (direct) {
+            System.arraycopy(values, start, rom, this.start + addr, length)
+            directObserver.onMemMutate(addr, length)
+        }
     }
 
     override fun typeAt(addr: Int): String = "StaticRom[$length]"

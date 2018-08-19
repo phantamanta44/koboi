@@ -1,8 +1,8 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.util.PropDel
 import io.github.phantamanta44.koboi.util.toShortHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
-import kotlin.properties.Delegates
 
 interface IMemoryBankController {
 
@@ -20,23 +20,24 @@ interface IMemoryBankController {
 
     }
 
-    val romArea: IMemoryArea
+    val romArea: DirectObservableMemoryArea
 
-    val ramArea: IMemoryArea
+    val ramArea: DirectObservableMemoryArea
 
 }
 
-class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> IMemoryArea) {
+class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> DirectObservableMemoryArea) {
 
-    var active: Int by Delegates.observable(initial) { _, _, n ->
-        if (n >= banks.size) throw IndexOutOfBoundsException("$n >= ${banks.size}")
+    var active: Int by PropDel.observe(initial) {
+        if (it >= banks.size) throw IndexOutOfBoundsException("$it >= ${banks.size}")
+        memoryArea.directObserver.onMemMutate(0, memoryArea.length)
     }
 
-    val banks: Array<IMemoryArea> = Array(bankCount, factory)
+    val banks: Array<DirectObservableMemoryArea> = Array(bankCount, factory)
 
-    val memoryArea: IMemoryArea = SwitchableMemoryArea(banks[0].length)
+    val memoryArea: DirectObservableMemoryArea = SwitchableMemoryArea(banks[0].length)
 
-    private inner class SwitchableMemoryArea(override val length: Int) : IMemoryArea {
+    private inner class SwitchableMemoryArea(override val length: Int) : DirectObservableMemoryArea() {
 
         override fun read(addr: Int, direct: Boolean): Byte = banks[active].read(addr, direct)
 
@@ -44,6 +45,7 @@ class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> IMemory
 
         override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
             banks[active].write(addr, *values, start = start, length = length, direct = direct)
+            directObserver.onMemMutate(addr, length)
         }
 
         override fun typeAt(addr: Int): String = "Switch{ ${banks[active].typeAt(addr)} }"
@@ -54,9 +56,9 @@ class MemoryBankSwitcher(bankCount: Int, initial: Int, factory: (Int) -> IMemory
 
 class MbcRomOnly(rom: ByteArray) : IMemoryBankController {
 
-    override val romArea: IMemoryArea = StaticRomArea(rom, 0, 32768)
+    override val romArea: DirectObservableMemoryArea = StaticRomArea(rom, 0, 32768)
 
-    override val ramArea: IMemoryArea = SimpleMemoryArea(8192)
+    override val ramArea: DirectObservableMemoryArea = SimpleMemoryArea(8192)
 
 }
 
@@ -76,7 +78,7 @@ class Mbc1(rom: ByteArray) : IMemoryBankController {
 
     private var writeType: Boolean = false
 
-    override val romArea: IMemoryArea = DisjointMemoryArea(
+    override val romArea: DirectObservableMemoryArea = DisjointMemoryArea(
             MappedMemoryArea(
                     StaticRomArea(rom, 0, 16384), // 0000-3FFF
                     romCtrl.memoryArea // 4000-7FFF
@@ -129,7 +131,7 @@ class Mbc5(rom: ByteArray) : IMemoryBankController {
 
     override val ramArea: ToggleableMemoryArea = ToggleableMemoryArea(ramCtrl.memoryArea, false)
 
-    override val romArea: IMemoryArea = DisjointMemoryArea(
+    override val romArea: DirectObservableMemoryArea = DisjointMemoryArea(
             MappedMemoryArea(
                     StaticRomArea(rom, 0, 16384), // 0000-3FFF
                     romCtrl.memoryArea // 4000-7FFF

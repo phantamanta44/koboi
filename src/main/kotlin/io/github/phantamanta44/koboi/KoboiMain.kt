@@ -14,7 +14,9 @@ import kotlin.reflect.full.memberProperties
 
 object KoboiConfig {
 
-    var debugShellOnCrash: Boolean by Delegates.notNull()
+    var debug: Boolean by Delegates.notNull()
+
+    var debugOnCrash: Boolean by Delegates.notNull()
 
     var backtrace: BacktraceDetail by Delegates.notNull()
 
@@ -59,7 +61,9 @@ class ParsedArgs(parser: ArgParser) {
 
     val fullBacktrace: Boolean by parser.flagging("--bt-full", "-T", help = "Show calls of all backtrace frames")
 
-    val debugShellOnCrash: Boolean by parser.flagging("--debug-shell-on-crash", "-d", help = "Drop to a debug shell on crash")
+    val debug: Boolean by parser.flagging("--debug", "-d", help = "Run emulation with debugger")
+
+    val debugOnCrash: Boolean by parser.flagging("--debug-on-crash", "-D", help = "Begin debugger on crash")
 
     val traceBootrom: Boolean by parser.flagging("--trace-bootrom", "-B", help = "Trace execution within the bootrom")
 

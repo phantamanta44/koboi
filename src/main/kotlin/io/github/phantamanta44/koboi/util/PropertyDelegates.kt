@@ -22,11 +22,26 @@ object PropDel {
         return MutablePropertyWrapper(prop)
     }
 
-    private class MutablePropertyWrapper<E, T>(private val prop: KMutableProperty0<T>) : IMutablePropertyFunctor<E, T> {
+    private open class MutablePropertyWrapper<E, T>(protected val prop: KMutableProperty0<T>) : IMutablePropertyFunctor<E, T> {
 
         override fun getValue(thisRef: E, property: KProperty<*>): T = prop.get()
 
         override fun setValue(thisRef: E, property: KProperty<*>, value: T) = prop.set(value)
+
+    }
+
+    fun <E, T>observe(value: T, observer: (T) -> Unit): IMutablePropertyFunctor<E, T> {
+        return ObservableProperty(value, observer)
+    }
+
+    private class ObservableProperty<E, T>(private var value: T, private val observer: (T) -> Unit) : IMutablePropertyFunctor<E, T> {
+
+        override fun getValue(thisRef: E, property: KProperty<*>): T = value
+
+        override fun setValue(thisRef: E, property: KProperty<*>, value: T) {
+            this.value = value
+            observer(value)
+        }
 
     }
 

@@ -155,6 +155,7 @@ class Ch3WavePatternMemoryArea(engine: GameEngine, private val enableRegister: C
         if (direct || !enableRegister.enabled) {
             super.write(addr, *values, start = start, length = length, direct = direct)
             System.arraycopy(memory, 0, generator.waveform, 0, 16)
+            directObserver.onMemMutate(addr, length)
         }
     }
 
