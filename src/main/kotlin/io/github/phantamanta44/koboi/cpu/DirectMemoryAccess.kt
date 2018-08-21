@@ -21,10 +21,10 @@ class DmaTransferHandler(private val gameEngine: GameEngine) {
         if (KoboiConfig.logDmaTransfers) {
             Loggr.trace("Starting ${mode.name} DMA transfer: $length bytes from ${srcAddr.toShortHex()} to ${destAddr.toShortHex()}")
         }
-        when {
-            mode == DmaTransferMode.VRAM_ATOMIC -> gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
-            transfer != null -> throw IllegalStateException("DMA transfer already in progress!")
-            else -> transfer = DmaTransfer(mode, srcAddr, length, destAddr)
+        if (mode == DmaTransferMode.VRAM_ATOMIC) {
+            gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
+        } else {
+            transfer = DmaTransfer(mode, srcAddr, length, destAddr)
         }
     }
 
