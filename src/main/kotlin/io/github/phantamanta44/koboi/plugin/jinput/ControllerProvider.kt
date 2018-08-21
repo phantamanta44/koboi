@@ -17,13 +17,14 @@ abstract class ControllerProvider(private val controller: Controller) : IInputPr
     private val buttons: EnumMap<ButtonType, AtomicBoolean> = EnumMap(ButtonType::class.java)
     private val dirs: EnumMap<JoypadDir, AtomicBoolean> = EnumMap(JoypadDir::class.java)
 
+    private val alive: AtomicBoolean = AtomicBoolean(true)
     private val event: Event = Event()
 
     init {
         for (button in ButtonType.values()) buttons[button] = AtomicBoolean(false)
         for (dir in JoypadDir.values()) dirs[dir] = AtomicBoolean(false)
         thread(isDaemon = true, name = "JInput thread") {
-            while (true) {
+            while (alive.get()) {
                 controller.poll()
                 while (controller.eventQueue.getNextEvent(event)) {
                     consume(event)
@@ -107,6 +108,8 @@ abstract class ControllerProvider(private val controller: Controller) : IInputPr
     override fun readButton(button: ButtonType): Boolean = buttons[button]!!.get()
 
     override fun readJoypad(dir: JoypadDir): Boolean = dirs[dir]!!.get()
+
+    override fun kill() = alive.set(false)
 
 }
 

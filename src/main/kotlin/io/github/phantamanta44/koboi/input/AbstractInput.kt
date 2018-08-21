@@ -6,6 +6,8 @@ interface IInputProvider {
 
     fun readJoypad(dir: JoypadDir): Boolean
 
+    fun kill()
+
 }
 
 enum class ButtonType(val bit: Int) {

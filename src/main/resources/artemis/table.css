@@ -1,0 +1,9 @@
+.table-row-cell {
+    -fx-font-size: 9pt;
+    -fx-font-family: monospace;
+}
+
+.list-cell {
+    -fx-font-size: 11pt;
+    -fx-font-family: monospace;
+}

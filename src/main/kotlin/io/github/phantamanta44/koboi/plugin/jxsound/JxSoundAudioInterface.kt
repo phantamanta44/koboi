@@ -31,9 +31,7 @@ class JxSoundAudioInterface : IAudioInterface {
         }
     }
 
-    override fun kill() {
-        alive.set(false)
-    }
+    override fun kill() = alive.set(false)
 
 }
 

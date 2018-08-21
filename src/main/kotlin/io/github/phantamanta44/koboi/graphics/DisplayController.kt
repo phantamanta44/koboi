@@ -1,20 +1,26 @@
 package io.github.phantamanta44.koboi.graphics
 
+import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.cpu.Cpu
 import io.github.phantamanta44.koboi.memory.LcdControlRegister
 import io.github.phantamanta44.koboi.memory.LcdStatusRegister
 import io.github.phantamanta44.koboi.memory.ResettableRegister
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
-class DisplayController(private val cpu: Cpu, private val renderer: IScanLineUploader, private val display: IDisplay,
+class DisplayController(private val engine: GameEngine, private val renderer: IScanLineUploader, private val display: IDisplay,
                         private val memLcdControl: LcdControlRegister, private val memLcdStatus: LcdStatusRegister,
                         private val memScanLine: ResettableRegister) {
+
+    private val cpu: Cpu by lazy { engine.cpu }
 
     private var cycleCount: Int = 0
     var dmaHBlankFrame: Boolean = false
 
     fun start() {
-        display.show { cpu.alive.set(false) }
+        display.show {
+            cpu.alive.set(false)
+            engine.endDebugSession()
+        }
     }
 
     fun kill() {

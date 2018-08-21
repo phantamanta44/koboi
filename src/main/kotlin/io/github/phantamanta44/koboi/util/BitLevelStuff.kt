@@ -10,12 +10,14 @@ fun Byte.toUnsignedInt(): Int = (toInt() and 0xFF)
 
 fun Byte.toUnsignedHex(): String = toUnsignedInt().formatPadded(2, 16)
 
+fun Byte.toBin(): String = toUnsignedInt().formatPadded(8, 2)
+
 fun Int.toShortHex(): String = (this and 0xFFFF).formatPadded(4, 16)
 
 fun Int.toByteHex(): String = (this and 0xFF).formatPadded(2, 16)
 
 fun Int.formatPadded(length: Int, radix: Int): String {
-    val asString = toString(radix)
+    val asString = toString(radix).toUpperCase()
     val unpaddedLength = asString.length
     return if (unpaddedLength >= length) asString else ("0".repeat(length - unpaddedLength) + asString)
 }

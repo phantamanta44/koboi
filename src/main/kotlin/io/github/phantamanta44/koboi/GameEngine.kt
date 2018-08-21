@@ -72,7 +72,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         Loggr.debug("Using MBC of type ${mbc.javaClass.simpleName}")
 
         // init wram
-        val wramSwitcher = MemoryBankSwitcher(gbType.wramBankCount, 1, { SimpleMemoryArea(4096) })
+        val wramSwitcher = MemoryBankSwitcher(gbType.wramBankCount, 1) { SimpleMemoryArea(4096) }
         val memWram = MappedMemoryArea(wramSwitcher.banks[0], wramSwitcher.memoryArea) // C000-DFFF wram
         val memWramControl = ObservableRegister { wramSwitcher.active = Math.max(1, it.toInt() and 7) } // FF70 wram bank switch
 
@@ -82,7 +82,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
 
         // init display and associated memory
         val display = GlDisplay()
-        val vramSwitcher = MemoryBankSwitcher(2, 0, { SimpleMemoryArea(8192) }) // 8000-9FFF vram
+        val vramSwitcher = MemoryBankSwitcher(2, 0) { SimpleMemoryArea(8192) } // 8000-9FFF vram
         val memVramControl = ObservableRegister { vramSwitcher.active = it.toInt() and 1 } // FF4F vram bank switch
         val memLcdControl = LcdControlRegister() // FF40 lcd control
         val memLcdStatus = LcdStatusRegister() // FF41 lcd status
@@ -312,7 +312,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
             GameboyType.GAMEBOY_COLOUR -> GbcRenderer(memLcdControl, display, cpu, vramSwitcher,
                     cgbPaletteBg, cgbPaletteSprite)
         }
-        ppu = DisplayController(cpu, scanLineRenderer, display, memLcdControl, memLcdStatus, memScanLine)
+        ppu = DisplayController(this, scanLineRenderer, display, memLcdControl, memLcdStatus, memScanLine)
 
         // create debug provider
         debug = ArtemisDebugger()
@@ -338,12 +338,10 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
             }
             Loggr.info("Cpu killed; freeing resources...")
             if (debugTarget != null) endDebugSession()
-            ppu.kill()
-            audio.kill()
+            cleanUp()
             Loggr.info("Exiting!")
         } catch (e: EmulationException) {
-            ppu.kill()
-            audio.kill()
+            cleanUp()
             e.printStackTrace()
             e.printCpuState()
             if (_debugSession != null && KoboiConfig.debugOnCrash) startDebugSession()
@@ -385,6 +383,12 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
             _debugSession?.kill()
             _debugSession = null
         }
+    }
+
+    private fun cleanUp() {
+        ppu.kill()
+        audio.kill()
+        input.kill()
     }
 
 }

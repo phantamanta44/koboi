@@ -1,241 +1,138 @@
 package io.github.phantamanta44.koboi.plugin.artemis
 
-import io.github.phantamanta44.koboi.Loggr
-import io.github.phantamanta44.koboi.debug.CpuProperty
 import io.github.phantamanta44.koboi.debug.ICpuAccess
+import io.github.phantamanta44.koboi.debug.IFlagAccess
 import io.github.phantamanta44.koboi.util.toUnsignedHex
-import java.awt.Dimension
-import java.util.*
-import javax.swing.BoxLayout
-import javax.swing.JButton
-import javax.swing.JComponent
-import javax.swing.JTable
-import javax.swing.table.AbstractTableModel
+import javafx.beans.property.SimpleStringProperty
+import javafx.beans.property.StringProperty
+import javafx.event.EventHandler
+import javafx.fxml.FXML
+import javafx.scene.Cursor
+import javafx.scene.control.Alert
+import javafx.scene.control.ButtonType
+import javafx.scene.control.TableView
+import javafx.scene.control.cell.TextFieldTableCell
+import javafx.util.Callback
+import javafx.util.converter.DefaultStringConverter
+import kotlin.reflect.KMutableProperty1
 
-class AModCpu(session: ArtemisDebugSession) : ArtemisModule("CPU", session) {
+class AModCpu(session: ArtemisDebugSession) : ArtemisModule("CPU State", "artemis_cpu", session) {
 
-    private lateinit var frozenControls: List<JComponent>
-    private lateinit var btnFreeze: JButton
+    @FXML
+    private lateinit var propTable: TableView<CachedCpuState>
 
-    private lateinit var callStack: CallStackTableModel
-    private lateinit var cpuState: CpuStateTableModel
-
-    private lateinit var btnDelBreak: JButton
-
-    private var noInstruction: Boolean = false
-
-    init {
-        contentPane.box(BoxLayout.Y_AXIS) {
-            box(BoxLayout.X_AXIS) { // controls
-                btnFreeze = button("freeze", enabled = false) { session.frozen = true }
-                frozenControls = listOf(
-                    button("unfreeze") { session.unfreeze() },
-                    button("step t-cycle") { session.unfreezeOverrideUntil { true } },
-                    button("step m-cycle") {
-                        val initial = session.target.tCycle
-                        session.unfreezeOverrideUntil { session.target.tCycle - initial >= 4 }
-                    },
-                    button("step insn") {
-                        noInstruction = true
-                        session.unfreezeOverrideUntil { !noInstruction }
-                    },
-                    button("step h-blank") { Loggr.warn("No impl!") }, // TODO
-                    button("step v-blank") { Loggr.warn("No impl!") }) // TODO
+    @FXML
+    fun initialize() {
+        propTable.columns[0].cellValueFactory = Callback { it.value.propKey }
+        propTable.columns[0].cellFactory = Callback { StringDataCell() }
+        propTable.columns[1].cellValueFactory = Callback { it.value.propValue }
+        propTable.columns[1].cellFactory = Callback { PropValueCell() }
+        propTable.columns[1].onEditCommit = EventHandler {
+            if (!it.rowValue.prop.setter!!(session.target.cpu, it.newValue as String)) {
+                Alert(Alert.AlertType.ERROR, "Invalid property value!", ButtonType.OK).showAndWait()
+                it.consume()
+                it.tableView.refresh()
             }
-            box(BoxLayout.X_AXIS) {
-                box(BoxLayout.X_AXIS) {
-                    scroll { // trace disassembly
-                        add(JTable(DisassemblyTraceTableModel()))
-                    }
-                    scroll { // memory disassembly
-                        add(JTable(DisassemblyMemoryTableModel()))
-                    }
+        }
+        propTable.selectionModel.isCellSelectionEnabled = true
+        tracking.forEach { propTable.items.add(CachedCpuState(it.value, it.value.getter(session.target.cpu))) }
+    }
+
+    override fun refresh() {
+        tracking.forEach { propTable.items[it.index].propValue.value = it.value.getter(session.target.cpu) }
+    }
+
+}
+
+fun regSetter8(reg: KMutableProperty1<ICpuAccess, Byte>): (ICpuAccess, String) -> Boolean = { cpu, s ->
+    try {
+        reg.set(cpu, s.toByte(16))
+        true
+    } catch (e: NumberFormatException) {
+        false
+    }
+}
+
+fun regSetter16(reg: KMutableProperty1<ICpuAccess, Short>): (ICpuAccess, String) -> Boolean = { cpu, s ->
+    try {
+        reg.set(cpu, s.toShort(16))
+        true
+    } catch (e: NumberFormatException) {
+        false
+    }
+}
+
+fun flagSetter(flag: KMutableProperty1<IFlagAccess, Boolean>): (ICpuAccess, String) -> Boolean = { cpu, s ->
+    when (s.trim().toLowerCase()) {
+        "true" -> {
+            flag.set(cpu.regF, true)
+            true
+        }
+        "false" -> {
+            flag.set(cpu.regF, false)
+            true
+        }
+        else -> false
+    }
+}
+
+val tracking: List<IndexedValue<TrackedCpuState>> = listOf(
+        TrackedCpuState("register a", regSetter8(ICpuAccess::regA)) { it.regA.toUnsignedHex() },
+        TrackedCpuState("register b", regSetter8(ICpuAccess::regB)) { it.regB.toUnsignedHex() },
+        TrackedCpuState("register c", regSetter8(ICpuAccess::regC)) { it.regC.toUnsignedHex() },
+        TrackedCpuState("register d", regSetter8(ICpuAccess::regD)) { it.regD.toUnsignedHex() },
+        TrackedCpuState("register e", regSetter8(ICpuAccess::regE)) { it.regE.toUnsignedHex() },
+        TrackedCpuState("register h", regSetter8(ICpuAccess::regH)) { it.regH.toUnsignedHex() },
+        TrackedCpuState("register l", regSetter8(ICpuAccess::regL)) { it.regL.toUnsignedHex() },
+        TrackedCpuState("reg pair af", regSetter16(ICpuAccess::regAF)) { it.regAF.toUnsignedHex() },
+        TrackedCpuState("reg pair bc", regSetter16(ICpuAccess::regBC)) { it.regBC.toUnsignedHex() },
+        TrackedCpuState("reg pair de", regSetter16(ICpuAccess::regDE)) { it.regDE.toUnsignedHex() },
+        TrackedCpuState("reg pair hl", regSetter16(ICpuAccess::regHL)) { it.regHL.toUnsignedHex() },
+        TrackedCpuState("register pc", regSetter16(ICpuAccess::regPC)) { it.regPC.toUnsignedHex() },
+        TrackedCpuState("register sp", regSetter16(ICpuAccess::regSP)) { it.regSP.toUnsignedHex() },
+        TrackedCpuState("flag z", flagSetter(IFlagAccess::flagZ)) { it.regF.flagZ.toString() },
+        TrackedCpuState("flag n", flagSetter(IFlagAccess::flagN)) { it.regF.flagN.toString() },
+        TrackedCpuState("flag h", flagSetter(IFlagAccess::flagH)) { it.regF.flagH.toString() },
+        TrackedCpuState("flag c", flagSetter(IFlagAccess::flagC)) { it.regF.flagC.toString() },
+        TrackedCpuState("flag ime", { cpu, s ->
+            when (s.trim().toLowerCase()) {
+                "true" -> {
+                    cpu.flagIME = true
+                    true
                 }
-                box(BoxLayout.Y_AXIS) {
-                    box(BoxLayout.X_AXIS) {
-                        scroll { // call stack
-                            callStack = CallStackTableModel(session)
-                            add(JTable(callStack))
-                        }
-                        cpuState = CpuStateTableModel(session) // cpu state
-                        add(JTable(cpuState))
-                    }
-                    box(BoxLayout.Y_AXIS) {
-                        // breakpoint list // TODO
-                        box(BoxLayout.X_AXIS) { // breakpoint controls // TODO
-                            button("+") { Loggr.warn("No impl!") }
-                            btnDelBreak = button("-") { Loggr.warn("No impl!") }
-                        }
-                    }
+                "false" -> {
+                    cpu.flagIME = false
+                    true
                 }
+                else -> false
+            }
+        }) { it.flagIME.toString() },
+        TrackedCpuState("double clock") { it.doubleClock.toString() },
+        TrackedCpuState("cpu state") { it.state.name }
+).withIndex().toList()
+
+data class TrackedCpuState(val key: String, val setter: ((ICpuAccess, String) -> Boolean)? = null, val getter: (ICpuAccess) -> String)
+
+class CachedCpuState(val prop: TrackedCpuState, value: String) {
+
+    val propKey: StringProperty = SimpleStringProperty(prop.key)
+    val propValue: StringProperty = SimpleStringProperty(value)
+
+}
+
+class PropValueCell : TextFieldTableCell<CachedCpuState, String>(DefaultStringConverter()) {
+
+    override fun updateItem(item: String?, empty: Boolean) {
+        super.updateItem(item, empty)
+        tableRow.item?.let {
+            if ((it as CachedCpuState).prop.setter != null) {
+                cursor = Cursor.TEXT
+                isEditable = true
+            } else {
+                cursor = null
+                isEditable = false
             }
         }
-        minimumSize = Dimension(660, 330)
-        size = Dimension(660, 330)
-        pack()
-    }
-
-    override fun isAtBreakpoint(): Boolean {
-        return super.isAtBreakpoint()
-    }
-
-    override fun onFrozenState(frozen: Boolean) {
-        // change control state
-        frozenControls.forEach { it.isEnabled = frozen }
-        btnFreeze.isEnabled = !frozen
-
-        // update data tables
-        if (frozen) {
-            callStack.fireTableDataChanged()
-            cpuState.forceRefresh()
-        }
-    }
-
-    fun onCpuMutate(prop: CpuProperty) = cpuState.onCpuMutate(prop)
-
-    fun onCpuExecute(opcode: Byte) {
-        noInstruction = false
-    }
-
-    fun onCpuCall(addr: Short) = callStack.push(addr)
-
-    fun onCpuReturn() = callStack.pop()
-
-}
-
-abstract class DisassemblyTableModel : AbstractTableModel() {
-
-    override fun getRowCount(): Int = 51
-
-    override fun getColumnCount(): Int = 3
-
-    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any = "NOOP"
-
-    override fun getColumnName(column: Int): String = when (column) {
-        0 -> "pc"
-        1 -> "mnemonic"
-        2 -> "parameters"
-        else -> throw IllegalStateException(column.toString())
-    }
-    
-}
-
-class DisassemblyTraceTableModel : DisassemblyTableModel() {
-
-
-
-}
-
-class DisassemblyMemoryTableModel : DisassemblyTableModel() {
-
-
-
-}
-
-class CallStackTableModel(private val session: ArtemisDebugSession) : AbstractTableModel() {
-
-    private val callStack: MutableList<Short> = mutableListOf()
-
-    override fun getRowCount(): Int = callStack.size
-
-    override fun getColumnCount(): Int = 1
-
-    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any = callStack[rowIndex].toUnsignedHex()
-
-    override fun getColumnName(column: Int): String = "address"
-
-    fun push(addr: Short) {
-        session.fpExec({
-            callStack.add(addr)
-        }, {
-            val index = callStack.size
-            callStack.add(addr)
-            fireTableRowsInserted(index, index)
-        })
-    }
-
-    fun pop() {
-        session.fpExec({
-            callStack.removeAt(callStack.lastIndex)
-        }, {
-            val index = callStack.lastIndex
-            callStack.removeAt(index)
-            fireTableRowsDeleted(index, index)
-        })
-    }
-
-}
-
-class CpuStateTableModel(private val session: ArtemisDebugSession) : AbstractTableModel() {
-
-    companion object {
-
-        private val tracking: List<IndexedValue<TrackedCpuState>> = listOf(
-                TrackedCpuState("register a", CpuProperty.REG_A) { it.regA.toUnsignedHex() },
-                TrackedCpuState("register b", CpuProperty.REG_B) { it.regB.toUnsignedHex() },
-                TrackedCpuState("register c", CpuProperty.REG_C) { it.regC.toUnsignedHex() },
-                TrackedCpuState("register d", CpuProperty.REG_D) { it.regD.toUnsignedHex() },
-                TrackedCpuState("register e", CpuProperty.REG_E) { it.regE.toUnsignedHex() },
-                TrackedCpuState("register h", CpuProperty.REG_H) { it.regH.toUnsignedHex() },
-                TrackedCpuState("register l", CpuProperty.REG_L) { it.regL.toUnsignedHex() },
-                TrackedCpuState("reg pair af", CpuProperty.REG_A, CpuProperty.REG_F) { it.regAF.toUnsignedHex() },
-                TrackedCpuState("reg pair bc", CpuProperty.REG_B, CpuProperty.REG_C) { it.regBC.toUnsignedHex() },
-                TrackedCpuState("reg pair de", CpuProperty.REG_D, CpuProperty.REG_E) { it.regDE.toUnsignedHex() },
-                TrackedCpuState("reg pair hl", CpuProperty.REG_H, CpuProperty.REG_L) { it.regHL.toUnsignedHex() },
-                TrackedCpuState("register pc", CpuProperty.REG_PC) { it.regPC.toUnsignedHex() },
-                TrackedCpuState("register sp", CpuProperty.REG_SP) { it.regSP.toUnsignedHex() },
-                TrackedCpuState("flag z", CpuProperty.REG_F) { it.regF.flagZ.toString() },
-                TrackedCpuState("flag n", CpuProperty.REG_F) { it.regF.flagN.toString() },
-                TrackedCpuState("flag h", CpuProperty.REG_F) { it.regF.flagH.toString() },
-                TrackedCpuState("flag c", CpuProperty.REG_F) { it.regF.flagC.toString() },
-                TrackedCpuState("flag ime", CpuProperty.FLAG_IME) { it.flagIME.toString() },
-                TrackedCpuState("double clock", CpuProperty.CLOCK_SPEED) { it.doubleClock.toString() },
-                TrackedCpuState("cpu state", CpuProperty.STATE) { it.state.name }
-        ).withIndex().toList()
-
-    }
-
-    private val storedStates: Array<String> = Array(tracking.size, { tracking[it].value.getter(session.target.cpu) })
-
-    override fun getRowCount(): Int = tracking.size
-
-    override fun getColumnCount(): Int = 2
-
-    override fun getValueAt(rowIndex: Int, columnIndex: Int): Any = when (columnIndex) {
-        0 -> tracking[rowIndex].value.key
-        1 -> storedStates[rowIndex]
-        else -> throw IllegalStateException(rowIndex.toString())
-    }
-
-    override fun getColumnName(column: Int): String = when (column) {
-        0 -> "property"
-        1 -> "value"
-        else -> throw IllegalStateException(column.toString())
-    }
-
-    fun onCpuMutate(prop: CpuProperty) {
-        session.fpExec(null, {
-            tracking.filter { it.value.isAffectedBy(prop) }.forEach {
-                storedStates[it.index] = it.value.getter(session.target.cpu)
-                if (session.frozen) fireTableCellUpdated(it.index, 1)
-            }
-        })
-    }
-
-    fun forceRefresh() {
-        tracking.forEach {
-            storedStates[it.index] = it.value.getter(session.target.cpu)
-            if (session.frozen) fireTableCellUpdated(it.index, 1)
-        }
-        fireTableDataChanged()
-    }
-
-    private class TrackedCpuState(val key: String, vararg props: CpuProperty, val getter: (ICpuAccess) -> String) {
-
-        private val propSet: EnumSet<CpuProperty> = EnumSet.copyOf(props.asList())
-
-        fun isAffectedBy(prop: CpuProperty): Boolean = propSet.contains(prop)
-
     }
 
 }

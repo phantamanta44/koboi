@@ -57,6 +57,8 @@ class JInputInputProvider : IInputProvider {
 
     override fun readJoypad(dir: JoypadDir): Boolean = controllerDelegate.readJoypad(dir)
 
+    override fun kill() = controllerDelegate.kill()
+
 }
 
 class NoopControllerProvider : IInputProvider {
@@ -64,5 +66,9 @@ class NoopControllerProvider : IInputProvider {
     override fun readButton(button: ButtonType): Boolean = false
 
     override fun readJoypad(dir: JoypadDir): Boolean = false
+
+    override fun kill() {
+        // NO-OP
+    }
 
 }

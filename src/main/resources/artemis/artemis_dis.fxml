@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<HBox stylesheets="@table.css" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1">
+   <children>
+      <TableView fx:id="tblTrace">
+        <columns>
+            <TableColumn editable="false" minWidth="-1.0" prefWidth="60.0" resizable="false" sortable="false" text="addr" />
+          <TableColumn editable="false" minWidth="-1.0" prefWidth="140.0" resizable="false" sortable="false" text="op" />
+          <TableColumn editable="false" minWidth="-1.0" prefWidth="320.0" resizable="false" sortable="false" text="params" />
+        </columns>
+      </TableView>
+      <TableView fx:id="tblMem">
+        <columns>
+          <TableColumn editable="false" minWidth="-1.0" prefWidth="60.0" resizable="false" sortable="false" text="addr" />
+          <TableColumn editable="false" minWidth="-1.0" prefWidth="186.0" resizable="false" sortable="false" text="op" />
+        </columns>
+      </TableView>
+      <VBox alignment="TOP_CENTER">
+         <children>
+            <Label text="Call Stack" textAlignment="CENTER">
+               <font>
+                  <Font name="System Bold" size="16.0" />
+               </font>
+            </Label>
+            <ListView fx:id="elemCallStack" />
+         </children>
+      </VBox>
+   </children>
+</HBox>

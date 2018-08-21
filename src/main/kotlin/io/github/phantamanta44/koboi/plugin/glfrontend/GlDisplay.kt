@@ -154,6 +154,13 @@ class GlDisplay : GLEventListener, IDisplay {
                 override fun windowDestroyNotify(e: WindowEvent) {
                     if (animator.isStarted) animator.stop()
                     deathCallback()
+                    pixelBufferLock.lockInterruptibly()
+                    try {
+                        readyForFrame.set(true)
+                        pixelBufferCondition.signalAll()
+                    } finally {
+                        pixelBufferLock.unlock()
+                    }
                 }
             })
             isResizable = true

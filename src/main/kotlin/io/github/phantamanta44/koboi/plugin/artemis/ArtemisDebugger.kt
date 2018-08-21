@@ -1,55 +1,65 @@
 package io.github.phantamanta44.koboi.plugin.artemis
 
+import com.sun.javafx.application.LauncherImpl
+import com.sun.javafx.application.PlatformImpl
 import io.github.phantamanta44.koboi.cpu.InterruptType
 import io.github.phantamanta44.koboi.debug.CpuProperty
 import io.github.phantamanta44.koboi.debug.IDebugProvider
 import io.github.phantamanta44.koboi.debug.IDebugSession
 import io.github.phantamanta44.koboi.debug.IDebugTarget
-import io.github.phantamanta44.koboi.util.PropDel
-import java.awt.EventQueue
-import java.awt.event.WindowAdapter
-import java.awt.event.WindowEvent
-import javax.swing.JFrame
-import javax.swing.UIManager
-import javax.swing.plaf.FontUIResource
+import javafx.application.Platform
+import javafx.beans.property.BooleanProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.fxml.FXMLLoader
+import javafx.scene.Scene
+import javafx.stage.Stage
+import kotlin.properties.Delegates
 
 class ArtemisDebugger : IDebugProvider {
 
-    override fun startDebugging(target: IDebugTarget): IDebugSession = ArtemisDebugSession(target)
+    private var firstTime: Boolean = true
+
+    override fun startDebugging(target: IDebugTarget): IDebugSession {
+        if (firstTime) {
+            firstTime = false
+            val tkInit = LauncherImpl::class.java.getDeclaredMethod("startToolkit")
+            tkInit.isAccessible = true
+            tkInit.invoke(null)
+        }
+        var session: ArtemisDebugSession? = null
+        PlatformImpl.runAndWait {
+            session = ArtemisDebugSession(target)
+        }
+        return session!!
+    }
 
 }
 
 class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
 
-//    private val modMemory: AModMemory = AModMemory(this)
-    private val modCpu: AModCpu = AModCpu(this)
-    private val modules: List<ArtemisModule> = listOf(/*modMemory, */modCpu)
+    val propFrozen: BooleanProperty = SimpleBooleanProperty(true)
+    var frozen: Boolean by propFrozen.delegate()
 
-    var frozen: Boolean by PropDel.observe(true, { modules.forEach { mod -> mod.onFrozenState(it) } })
-    private var unfreezeOverride: (() -> Boolean)? = null
+    private val mainWindow: ArtemisMainWindow = ArtemisMainWindow(this)
+
+    val modCpu: AModCpu = AModCpu(this)
+    val modDis: AModDisassembler = AModDisassembler(this)
+    private val modules: List<ArtemisModule> = listOf(modCpu, modDis)
 
     init {
-        for (key in UIManager.getDefaults().keys()) {
-            val elem = UIManager.get(key)
-            if (elem is FontUIResource) UIManager.put(key, FontUIResource("monospace", elem.style, elem.size))
-        }
-        modules.forEach { it.isVisible = true }
+        mainWindow.finishLoad()
+        modules.forEach(ArtemisModule::finishLoad)
+        mainWindow.show()
     }
 
-    override fun kill() {
+    override fun kill() = Platform.runLater {
         modules.forEach(ArtemisModule::dispose)
+        mainWindow.dispose()
     }
 
     override fun shouldFreeze(): Boolean {
-        unfreezeOverride?.let {
-            if (it()) {
-                unfreezeOverride = null
-            } else {
-                return false
-            }
-        }
-        return frozen || if (modules.any(ArtemisModule::isAtBreakpoint)) {
-            frozen = true
+        return if (mainWindow.checkStep() && frozen) {
+            Platform.runLater { modules.forEach { it.refresh() } }
             true
         } else {
             false
@@ -57,66 +67,82 @@ class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
     }
 
     override fun onMemoryMutate(addr: Int, length: Int) {
-        // NO-OP
+        modDis.onMemoryMutate(addr, length)
     }
 
     override fun onCpuMutate(prop: CpuProperty) {
-        modCpu.onCpuMutate(prop)
+        // NO-OP
     }
 
     override fun onCpuExecute(opcode: Byte) {
-        modCpu.onCpuExecute(opcode)
+        mainWindow.onCpuExecute()
+        modDis.onCpuExecute(opcode)
     }
 
     override fun onCpuCall(addr: Short) {
-        modCpu.onCpuCall(addr)
+        modDis.onCpuCall(addr)
     }
 
     override fun onCpuReturn() {
-        modCpu.onCpuReturn()
+        modDis.onCpuReturn()
     }
 
     override fun onInterruptExecuted(interrupt: InterruptType) {
         // NO-OP
     }
 
-    fun unfreeze() {
-        frozen = false
-        target.unfreeze()
+//    fun fpExec(notFrozen: (() -> Unit)?, ifFrozen: () -> Unit) {
+//        if (frozen) {
+//
+//        } else {
+//            notFrozen?.invoke()
+//        }
+//    }
+
+}
+
+abstract class ArtemisStageWrapper(title: String, private val fxml: String) {
+
+    protected val stage: Stage = Stage()
+
+    init {
+        stage.title = title
+        stage.isResizable = false
     }
 
-    fun unfreezeOverrideUntil(predicate: () -> Boolean) {
-        unfreezeOverride = predicate
-        target.unfreeze()
+    open fun finishLoad() {
+        val loader = FXMLLoader(javaClass.getResource("/artemis/$fxml.fxml"))
+        loader.setController(this)
+        stage.scene = Scene(loader.load())
+        stage.sizeToScene()
     }
 
-    fun fpExec(notFrozen: (() -> Unit)?, ifFrozen: () -> Unit) {
-        if (frozen) {
-            EventQueue.invokeLater(ifFrozen)
-        } else {
-            notFrozen?.invoke()
-        }
+    fun dispose() {
+        stage.close()
     }
 
 }
 
-@Suppress("LeakingThis")
-abstract class ArtemisModule(title: String, protected val session: ArtemisDebugSession) : JFrame("Arty $title") {
+abstract class ArtemisModule(title: String, fxml: String, protected val session: ArtemisDebugSession) : ArtemisStageWrapper("Arty $title", fxml) {
+
+    var enabled: Boolean by Delegates.observable(false) { _, old, new ->
+        if (new) stage.show() else stage.hide()
+        propEnabled.post(old, new)
+    }
+    val propEnabled: BooleanPropWrapper = BooleanPropWrapper(::enabled)
 
     init {
-        defaultCloseOperation = JFrame.DISPOSE_ON_CLOSE
-        isResizable = false
-        addWindowListener(object : WindowAdapter() {
-            override fun windowClosed(e: WindowEvent?) {
-                session.target.endDebugSession()
-            }
-        })
+        stage.setOnCloseRequest {
+            it.consume()
+            enabled = false
+        }
     }
 
-    open fun isAtBreakpoint(): Boolean = false
-
-    open fun onFrozenState(frozen: Boolean) {
-        // NO-OP
+    override fun finishLoad() {
+        super.finishLoad()
+        stage.scene.root.disableProperty().bind(session.propFrozen.not())
     }
+
+    abstract fun refresh()
 
 }
