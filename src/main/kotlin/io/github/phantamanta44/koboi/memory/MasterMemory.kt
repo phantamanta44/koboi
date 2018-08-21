@@ -30,6 +30,7 @@ class GbMemory(private val mainMemory: DirectObservableMemoryArea, private val b
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom
                 bootromActive = false
+                directObserver.onMemMutate(0, bootrom.size)
                 unmapCallback()
             }
         }
@@ -89,6 +90,7 @@ class GbcMemory(private val mainMemory: DirectObservableMemoryArea, private val 
             } else if (addr == 0xFF50) {
                 // assumes this address is only written to if we're disabling the bootrom
                 bootromActive = false
+                directObserver.onMemMutate(0, bootrom.size)
                 unmapCallback()
             }
         }
