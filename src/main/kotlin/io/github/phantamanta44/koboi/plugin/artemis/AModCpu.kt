@@ -44,15 +44,6 @@ class AModCpu(session: ArtemisDebugSession) : ArtemisModule("CPU State", "artemi
 
 }
 
-fun regSetter8(reg: KMutableProperty1<ICpuAccess, Byte>): (ICpuAccess, String) -> Boolean = { cpu, s ->
-    try {
-        reg.set(cpu, s.toByte(16))
-        true
-    } catch (e: NumberFormatException) {
-        false
-    }
-}
-
 fun regSetter16(reg: KMutableProperty1<ICpuAccess, Short>): (ICpuAccess, String) -> Boolean = { cpu, s ->
     try {
         reg.set(cpu, s.toShort(16))
@@ -77,13 +68,6 @@ fun flagSetter(flag: KMutableProperty1<IFlagAccess, Boolean>): (ICpuAccess, Stri
 }
 
 val tracking: List<IndexedValue<TrackedCpuState>> = listOf(
-        TrackedCpuState("register a", regSetter8(ICpuAccess::regA)) { it.regA.toUnsignedHex() },
-        TrackedCpuState("register b", regSetter8(ICpuAccess::regB)) { it.regB.toUnsignedHex() },
-        TrackedCpuState("register c", regSetter8(ICpuAccess::regC)) { it.regC.toUnsignedHex() },
-        TrackedCpuState("register d", regSetter8(ICpuAccess::regD)) { it.regD.toUnsignedHex() },
-        TrackedCpuState("register e", regSetter8(ICpuAccess::regE)) { it.regE.toUnsignedHex() },
-        TrackedCpuState("register h", regSetter8(ICpuAccess::regH)) { it.regH.toUnsignedHex() },
-        TrackedCpuState("register l", regSetter8(ICpuAccess::regL)) { it.regL.toUnsignedHex() },
         TrackedCpuState("reg pair af", regSetter16(ICpuAccess::regAF)) { it.regAF.toUnsignedHex() },
         TrackedCpuState("reg pair bc", regSetter16(ICpuAccess::regBC)) { it.regBC.toUnsignedHex() },
         TrackedCpuState("reg pair de", regSetter16(ICpuAccess::regDE)) { it.regDE.toUnsignedHex() },

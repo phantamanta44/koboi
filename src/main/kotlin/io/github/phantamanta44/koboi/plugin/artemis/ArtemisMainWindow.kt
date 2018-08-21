@@ -5,6 +5,7 @@ import javafx.fxml.FXML
 import javafx.scene.Group
 import javafx.scene.control.CheckMenuItem
 import javafx.scene.control.ToggleButton
+import javafx.stage.Stage
 
 class ArtemisMainWindow(private val session: ArtemisDebugSession) : ArtemisStageWrapper("Artemis", "artemis_main") {
 
@@ -36,6 +37,8 @@ class ArtemisMainWindow(private val session: ArtemisDebugSession) : ArtemisStage
     }
 
     fun show() = stage.show()
+
+    fun adopt(child: Stage) = child.initOwner(stage)
 
     @FXML
     fun handleFreezeState() {

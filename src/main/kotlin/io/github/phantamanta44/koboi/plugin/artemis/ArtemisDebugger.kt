@@ -40,7 +40,7 @@ class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
     val propFrozen: BooleanProperty = SimpleBooleanProperty(true)
     var frozen: Boolean by propFrozen.delegate()
 
-    private val mainWindow: ArtemisMainWindow = ArtemisMainWindow(this)
+    val mainWindow: ArtemisMainWindow = ArtemisMainWindow(this)
 
     val modCpu: AModCpu = AModCpu(this)
     val modDis: AModDisassembler = AModDisassembler(this)
@@ -133,6 +133,7 @@ abstract class ArtemisModule(title: String, fxml: String, protected val session:
     override fun finishLoad() {
         super.finishLoad()
         stage.scene.root.disableProperty().bind(session.propFrozen.not())
+        session.mainWindow.adopt(stage)
     }
 
     abstract fun refresh()
