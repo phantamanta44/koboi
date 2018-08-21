@@ -6,10 +6,10 @@
 
 <BorderPane stylesheets="@table.css" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1">
    <center>
-      <TableView fx:id="propTable" editable="true">
+      <TableView fx:id="propTable" editable="true" prefWidth="230.0">
         <columns>
-          <TableColumn editable="false" minWidth="-1.0" prefWidth="95.0" sortable="false" text="Property" />
-          <TableColumn prefWidth="160.0" sortable="false" text="Value" />
+          <TableColumn editable="false" minWidth="-1.0" prefWidth="110.0" sortable="false" text="Property" />
+          <TableColumn prefWidth="120.0" sortable="false" text="Value" />
         </columns>
       </TableView>
    </center>

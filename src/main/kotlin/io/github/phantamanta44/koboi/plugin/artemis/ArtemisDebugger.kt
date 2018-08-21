@@ -91,14 +91,6 @@ class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
         // NO-OP
     }
 
-//    fun fpExec(notFrozen: (() -> Unit)?, ifFrozen: () -> Unit) {
-//        if (frozen) {
-//
-//        } else {
-//            notFrozen?.invoke()
-//        }
-//    }
-
 }
 
 abstract class ArtemisStageWrapper(title: String, private val fxml: String) {
