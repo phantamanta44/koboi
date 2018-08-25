@@ -90,7 +90,6 @@ class JxChannel<out G : JxAudioProducer>(freq: Int, override val generator: G) :
     }
 
     override fun resetSound() {
-        enabled = true
         generator.resetSound()
     }
 

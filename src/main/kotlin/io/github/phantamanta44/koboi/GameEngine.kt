@@ -127,12 +127,12 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
 
         val memAudio1Sweep = Ch1SweepRegister(this) // FF10 NR10 channel 1 sweep register
         val memAudio1LengthDuty = LengthDutyRegister(this, IAudioInterface::channel1, AudioManager::c1LengthCounter) // FF11 NR11 channel 1 length/wave pattern duty
-        val memAudio1Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel1, AudioManager::c1VolumeEnv) // FF12 NR12 channel 1 volume envelope
+        val memAudio1Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel1, AudioManager::c1VolumeEnv, AudioManager::c1Dac) // FF12 NR12 channel 1 volume envelope
         val memAudio1FreqLo = FreqLowRegister(this, AudioManager::c1UpdateFrequency) // FF13 NR13 channel 1 frequency low
         val memAudio1FreqHi = FreqHighRegister(this, AudioManager::c1LengthCounter, AudioManager::c1UpdateFrequency, AudioManager::c1RestartSound) // FF14 NR14 channel 1 frequency high
 
         val memAudio2LengthDuty = LengthDutyRegister(this, IAudioInterface::channel2, AudioManager::c2LengthCounter) // FF16 NR21 channel 2 length/wave pattern duty
-        val memAudio2Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel2, AudioManager::c2VolumeEnv) // FF17 NR22 channel 2 volume envelope
+        val memAudio2Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel2, AudioManager::c2VolumeEnv, AudioManager::c2Dac) // FF17 NR22 channel 2 volume envelope
         val memAudio2FreqLo = FreqLowRegister(this, AudioManager::c2UpdateFrequency) // FF18 NR23 channel 2 frequency low
         val memAudio2FreqHi = FreqHighRegister(this, AudioManager::c2LengthCounter, AudioManager::c2UpdateFrequency, AudioManager::c2RestartSound) // FF19 NR24 channel 2 frequency high
 
@@ -150,7 +150,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         val memAudio3WavePattern = Ch3WavePatternMemoryArea(this, memAudio3Enable) // FF30-FF3F channel 3 wave pattern data
 
         val memAudio4Length = Ch4LengthRegister(this) // FF20 NR41 channel 4 sound length
-        val memAudio4Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel4, AudioManager::c4VolumeEnv) // FF21 NR42 channel 4 volume envelope
+        val memAudio4Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel4, AudioManager::c4VolumeEnv, AudioManager::c4Dac) // FF21 NR42 channel 4 volume envelope
         val memAudio4PolyCounter = Ch4PolyCounterRegister(this) // FF22 NR43 channel 4 polynomial counter
         val memAudio4Control = Ch4ControlRegister(this) // FF23 NR44 channel 4 control
 

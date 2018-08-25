@@ -1,5 +1,18 @@
 package io.github.phantamanta44.koboi.audio
 
+class AudioDac(private val disable: () -> Unit) {
+
+    private var _enabled: Boolean = false
+
+    var enabled: Boolean
+        get() = _enabled
+        set(value) {
+            _enabled = value
+            if (!value) disable()
+        }
+
+}
+
 class Sweeper(private val generator: ISquareAudioGenerator, private val disable: () -> Unit) {
 
     var enabled: Boolean = false
@@ -28,19 +41,18 @@ class Sweeper(private val generator: ISquareAudioGenerator, private val disable:
 
 }
 
-class LengthCounter(private val disable: () -> Unit) {
+class LengthCounter(private val counterMax: Int, private val disable: () -> Unit) {
 
     var enabled: Boolean = false
-    var length: Int = 0
 
     var counter: Int = 0
 
     fun cycle() {
-        if (enabled && ++counter >= length) disable()
+        if (enabled && counter > 0 && --counter == 0) disable()
     }
 
     fun reset() {
-        counter = 0
+        if (counter == 0) counter = counterMax
     }
 
 }

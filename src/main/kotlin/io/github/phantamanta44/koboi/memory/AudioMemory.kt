@@ -2,6 +2,7 @@ package io.github.phantamanta44.koboi.memory
 
 import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.audio.*
+import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 typealias ManagerRef<T> = (AudioManager) -> T
 typealias ChannelRef<G> = (IAudioInterface) -> IAudioChannel<G>
@@ -47,18 +48,20 @@ class LengthDutyRegister(engine: GameEngine, channel: ChannelRef<ISquareAudioGen
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
         generator.dutyType = duty
-        lengthCounter.length = 64 - audioLength
+        lengthCounter.counter = 64 - audioLength
     }
 
     override fun typeAt(addr: Int): String = "RALengthDuty"
 
 }
 
-class VolumeEnvelopeRegister(engine: GameEngine, channel: ChannelRef<IAudioGenerator>, envelope: ManagerRef<VolumeEnvelope>)
+class VolumeEnvelopeRegister(engine: GameEngine, channel: ChannelRef<IAudioGenerator>,
+                             envelope: ManagerRef<VolumeEnvelope>, dac: ManagerRef<AudioDac>)
     : BitwiseRegister() {
 
     private val channel: IAudioChannel<IAudioGenerator> by lazy { channel(engine.audio.audio) }
     private val envelope: VolumeEnvelope by lazy { envelope(engine.audio) }
+    private val dac: AudioDac by lazy { dac(engine.audio) }
 
     var volume: Int by delegateMaskedInt(0b11110000, 4)
 
@@ -68,15 +71,20 @@ class VolumeEnvelopeRegister(engine: GameEngine, channel: ChannelRef<IAudioGener
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        val sweepShift0 = sweepShift
-        channel.volume = volume / 15F
-        envelope.initialVolume = volume
-        if (sweepShift0 == 0) {
-            envelope.enabled = false
+        if (!increase && volume == 0) {
+            dac.enabled = false
         } else {
-            envelope.enabled = true
-            envelope.period = sweepShift0
-            envelope.operation = if (increase) Operation.ADD else Operation.SUBTRACT
+            dac.enabled = true
+            val sweepShift0 = sweepShift
+            channel.volume = volume / 15F
+            envelope.initialVolume = volume
+            if (sweepShift0 == 0) {
+                envelope.enabled = false
+            } else {
+                envelope.enabled = true
+                envelope.period = sweepShift0
+                envelope.operation = if (increase) Operation.ADD else Operation.SUBTRACT
+            }
         }
     }
 
@@ -121,13 +129,20 @@ class FreqHighRegister(private val engine: GameEngine,
 
 class Ch3EnableRegister(engine: GameEngine) : BiDiBitwiseRegister(readableMask = 0b10000000) {
 
+    private val dac: AudioDac by lazy { engine.audio.c3Dac }
     private val generator: IWavePatternAudioGenerator by lazy { engine.audio.audio.channel3.generator }
 
     var enabled: Boolean by delegateBit(7)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        generator.enabled = enabled
+        if (enabled) {
+            dac.enabled = true
+            generator.enabled = true
+        } else {
+            dac.enabled = false
+            generator.enabled = false
+        }
     }
 
 }
@@ -138,7 +153,7 @@ class Ch3LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        lengthCounter.length = 256 - value.toInt()
+        lengthCounter.counter = 256 - value.toUnsignedInt()
     }
 
     override fun read(addr: Int, direct: Boolean): Byte = if (direct) super.read(addr, direct) else 0xFF.toByte()
@@ -171,7 +186,7 @@ class Ch4LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        lengthCounter.length = 64 - value.toInt() and 0b00111111
+        lengthCounter.counter = 64 - (value.toInt() and 0b00111111)
     }
 
     override fun read(addr: Int, direct: Boolean): Byte = if (direct) super.read(addr, direct) else 0xFF.toByte()
