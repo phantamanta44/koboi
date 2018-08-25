@@ -34,6 +34,7 @@ class ArtemisMainWindow(private val session: ArtemisDebugSession) : ArtemisStage
         groupStepButtons.disableProperty().bind(session.propFrozen.not())
         session.modCpu.propEnabled.bindBidirectional(enableModCpu.selectedProperty())
         session.modDis.propEnabled.bindBidirectional(enableModDis.selectedProperty())
+        session.modBreaker.propEnabled.bindBidirectional(enableModBreaker.selectedProperty())
     }
 
     fun show() = stage.show()

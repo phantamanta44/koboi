@@ -44,7 +44,8 @@ class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
 
     val modCpu: AModCpu = AModCpu(this)
     val modDis: AModDisassembler = AModDisassembler(this)
-    private val modules: List<ArtemisModule> = listOf(modCpu, modDis)
+    val modBreaker: AModBreaker = AModBreaker(this)
+    private val modules: List<ArtemisModule> = listOf(modCpu, modDis, modBreaker)
 
     init {
         mainWindow.finishLoad()
@@ -58,12 +59,27 @@ class ArtemisDebugSession(val target: IDebugTarget) : IDebugSession {
     }
 
     override fun shouldFreeze(): Boolean {
-        return if (mainWindow.checkStep() && frozen) {
-            Platform.runLater { modules.forEach { it.refresh() } }
-            true
+        modBreaker.checkBreakpoints()
+        return if (mainWindow.checkStep()) {
+            when {
+                frozen -> {
+                    updateFrozen()
+                    true
+                }
+                modBreaker.atBreakpoint -> {
+                    frozen = true
+                    updateFrozen()
+                    true
+                }
+                else -> false
+            }
         } else {
             false
         }
+    }
+
+    private fun updateFrozen() = Platform.runLater {
+        modules.forEach { it.refresh() }
     }
 
     override fun onMemoryMutate(addr: Int, length: Int) {

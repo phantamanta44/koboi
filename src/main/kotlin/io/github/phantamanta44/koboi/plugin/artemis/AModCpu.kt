@@ -31,7 +31,7 @@ class AModCpu(session: ArtemisDebugSession) : ArtemisModule("CPU State", "artemi
             if (!it.rowValue.prop.setter!!(session.target.cpu, it.newValue as String)) {
                 Alert(Alert.AlertType.ERROR, "Invalid property value!", ButtonType.OK).showAndWait()
                 it.consume()
-                it.tableView.refresh()
+                it.tableView.refresh() // TODO find a more efficient way to redraw the single element
             }
         }
         propTable.selectionModel.isCellSelectionEnabled = true

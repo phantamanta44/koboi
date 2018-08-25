@@ -7,8 +7,8 @@ import javafx.beans.property.IntegerProperty
 import javafx.beans.property.Property
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
-import javafx.collections.ObservableList
-import javafx.scene.control.*
+import javafx.scene.control.TableCell
+import java.lang.reflect.Method
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KProperty
@@ -119,4 +119,15 @@ open class StringDataCell<S> : BaseTableCell<S, String>() {
         super.setText(item)
     }
 
+}
+
+val mEnumConstantFactory: Method by lazy {
+    val method = Class::class.java.getDeclaredMethod("enumConstantDirectory")
+    method.isAccessible = true
+    method
+}
+
+@Suppress("UNCHECKED_CAST")
+inline fun <reified T : Enum<T>>parseEnum(name: String): T? {
+    return (mEnumConstantFactory.invoke(T::class.java) as Map<String, T>)[name]
 }

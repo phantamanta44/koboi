@@ -111,7 +111,7 @@ class DisassemblyTableRow(private val cpu: ICpuAccess) : TableRow<IDisassembledO
     override fun updateItem(item: IDisassembledOp?, empty: Boolean) {
         super.updateItem(item, empty)
         if (item?.propAddr?.value == cpu.regPC.toUnsignedInt()) {
-            style = "-fx-background-color: #64B5F6;"
+            style = "-fx-background-color: #F8BBD0;"
         }
     }
 
