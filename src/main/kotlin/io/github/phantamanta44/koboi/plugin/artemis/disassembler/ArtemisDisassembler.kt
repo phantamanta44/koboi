@@ -57,7 +57,7 @@ class DisassembledMemory(private val gbMem: IMemoryArea) {
         known.set(op.addr, op.addr + op.length)
     }
 
-    val firstKnownOp: Map.Entry<Int, DisassembledOp>
+    val firstKnownOp: Map.Entry<Int, DisassembledOp>?
         get() = memory.firstEntry()
 
     fun getOperation(addr: Int): Map.Entry<Int, DisassembledOp> = memory.floorEntry(addr)

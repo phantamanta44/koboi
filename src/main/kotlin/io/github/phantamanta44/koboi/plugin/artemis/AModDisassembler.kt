@@ -58,13 +58,11 @@ class AModDisassembler(session: ArtemisDebugSession) : ArtemisModule("Disassembl
         if (file != null) {
             PrintStream(file).use {
                 var op: Map.Entry<Int, DisassembledOp>? = disassembler.firstKnownOp
-                if (op != null) {
-                    do {
-                        if (disassembler.isKnown(op!!.value)) {
-                            it.println("${op.value.addr.toShortHex()}: ${op.value.propStringValue.value}")
-                        }
-                        op = disassembler.getNextOperation(op.key)
-                    } while (op != null)
+                while (op != null) {
+                    if (disassembler.isKnown(op.value)) {
+                        it.println("${op.value.addr.toShortHex()}: ${op.value.propStringValue.value}")
+                    }
+                    op = disassembler.getNextOperation(op.key)
                 }
             }
         }
