@@ -264,7 +264,8 @@ class ChannelVolumeRegister(private val engine: GameEngine) : BitwiseRegister() 
 
 }
 
-class AudioKillSwitchRegister(private val engine: GameEngine) : BiDiBitwiseRegister(0b10000000, 0b10001111) {
+class AudioChannelStateRegister(private val engine: GameEngine, private val memAudio: ToggleableWriteMemoryArea)
+    : BiDiBitwiseRegister(0b10000000, 0b10001111) {
 
     private var enableAudio: Boolean by delegateBit(7)
 
@@ -273,11 +274,23 @@ class AudioKillSwitchRegister(private val engine: GameEngine) : BiDiBitwiseRegis
     var c2Alive: Boolean by delegateBit(1)
     var c1Alive: Boolean by delegateBit(0)
 
+    private val emptyAudioMem = ByteArray(memAudio.length)
+
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        engine.audio.enabled = enableAudio
+        if (enableAudio) {
+            if (!memAudio.state) {
+                memAudio.state = true
+                engine.audio.enabled = true
+            }
+        } else if (memAudio.state) {
+            engine.audio.enabled = false
+            value = 0
+            memAudio.write(0, *emptyAudioMem)
+            memAudio.state = false
+        }
     }
 
-    override fun typeAt(addr: Int): String = "RAKillSwitch"
+    override fun typeAt(addr: Int): String = "RAState"
 
 }

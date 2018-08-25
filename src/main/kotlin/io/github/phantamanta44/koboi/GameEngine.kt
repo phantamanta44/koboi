@@ -156,13 +156,37 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
 
         val memAudioMasterVol = VInRegister() // FF24 NR50 VIn control
         val memAudioChannelVol = ChannelVolumeRegister(this) // FF25 NR51 per-channel output
-        val memAudioKillSwitch = AudioKillSwitchRegister(this) // FF26 NR52 audio kill switch
+        val memAudio = ToggleableWriteMemoryArea(MappedMemoryArea(
+                memAudio1Sweep, // FF10 NR10 channel 1 sweep register
+                memAudio1LengthDuty, // FF11 NR11 channel 1 length/wave pattern duty
+                memAudio1Volume, // FF12 NR12 channel 1 volume envelope
+                memAudio1FreqLo, // FF13 NR13 channel 1 frequency low
+                memAudio1FreqHi, // FF14 NR14 channel 1 frequency high
+                UnusableMemoryArea(1), // FF15 unused
+                memAudio2LengthDuty, // FF16 NR21 channel 2 length/wave pattern duty
+                memAudio2Volume, // FF17 NR22 channel 2 volume envelope
+                memAudio2FreqLo, // FF18 NR23 channel 2 frequency low
+                memAudio2FreqHi, // FF19 NR24 channel 2 frequency high
+                memAudio3Enable, // FF1A NR30 channel 3 on/off
+                memAudio3Length, // FF1B NR31 channel 3 sound length
+                memAudio3Volume, // FF1C NR32 channel 3 output level
+                memAudio3FreqLo, // FF1D NR33 channel 3 frequency low
+                memAudio3FreqHi, // FF1E NR34 channel 3 frequency high
+                UnusableMemoryArea(1), // FF1F unused
+                memAudio4Length, // FF20 NR41 channel 4 sound length
+                memAudio4Volume, // FF21 NR42 channel 4 volume envelope
+                memAudio4PolyCounter, // FF22 NR43 channel 4 polynomial counter
+                memAudio4Control, // FF23 NR44 channel 4 control
+                memAudioMasterVol, // FF24 NR50 VIn control
+                memAudioChannelVol // FF25 NR51 per-channel output
+        ), true)
+        val memAudioState = AudioChannelStateRegister(this, memAudio) // FF26 NR52 audio channel state
 
         audio = AudioManager(audioIface, clock,
                 memAudio1FreqLo, memAudio1FreqHi,
                 memAudio2FreqLo, memAudio2FreqHi,
                 memAudio3FreqLo, memAudio3FreqHi,
-                memAudioKillSwitch)
+                memAudioState)
 
         // init input and associated memory
         val memInput = JoypadRegister(memIntReq) // FF00 input register
@@ -223,29 +247,8 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
                 memIntReq, // FF0F interrupt request
 
                 // sound stuff
-                memAudio1Sweep, // FF10 NR10 channel 1 sweep register
-                memAudio1LengthDuty, // FF11 NR11 channel 1 length/wave pattern duty
-                memAudio1Volume, // FF12 NR12 channel 1 volume envelope
-                memAudio1FreqLo, // FF13 NR13 channel 1 frequency low
-                memAudio1FreqHi, // FF14 NR14 channel 1 frequency high
-                UnusableMemoryArea(1), // FF15 unused
-                memAudio2LengthDuty, // FF16 NR21 channel 2 length/wave pattern duty
-                memAudio2Volume, // FF17 NR22 channel 2 volume envelope
-                memAudio2FreqLo, // FF18 NR23 channel 2 frequency low
-                memAudio2FreqHi, // FF19 NR24 channel 2 frequency high
-                memAudio3Enable, // FF1A NR30 channel 3 on/off
-                memAudio3Length, // FF1B NR31 channel 3 sound length
-                memAudio3Volume, // FF1C NR32 channel 3 output level
-                memAudio3FreqLo, // FF1D NR33 channel 3 frequency low
-                memAudio3FreqHi, // FF1E NR34 channel 3 frequency high
-                UnusableMemoryArea(1), // FF1F unused
-                memAudio4Length, // FF20 NR41 channel 4 sound length
-                memAudio4Volume, // FF21 NR42 channel 4 volume envelope
-                memAudio4PolyCounter, // FF22 NR43 channel 4 polynomial counter
-                memAudio4Control, // FF23 NR44 channel 4 control
-                memAudioMasterVol, // FF24 NR50 VIn control
-                memAudioChannelVol, // FF25 NR51 per-channel output
-                memAudioKillSwitch, // FF26 NR52 audio kill switch
+                memAudio, // FF10-FF25 audio channel stuff
+                memAudioState, // FF26 NR52 audio channel state
                 UnusableMemoryArea(9), // FF27-FF2F unused
                 memAudio3WavePattern, // FF30-FF3F channel 3 wave pattern data
 

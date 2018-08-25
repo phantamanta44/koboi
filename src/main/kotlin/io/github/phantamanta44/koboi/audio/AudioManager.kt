@@ -1,7 +1,7 @@
 package io.github.phantamanta44.koboi.audio
 
 import io.github.phantamanta44.koboi.cpu.Timer
-import io.github.phantamanta44.koboi.memory.AudioKillSwitchRegister
+import io.github.phantamanta44.koboi.memory.AudioChannelStateRegister
 import io.github.phantamanta44.koboi.memory.FreqHighRegister
 import io.github.phantamanta44.koboi.memory.FreqLowRegister
 import io.github.phantamanta44.koboi.util.toUnsignedInt
@@ -10,7 +10,7 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
                    private val mC1FreqLo: FreqLowRegister, private val mC1FreqHi: FreqHighRegister,
                    private val mC2FreqLo: FreqLowRegister, private val mC2FreqHi: FreqHighRegister,
                    private val mC3FreqLo: FreqLowRegister, private val mC3FreqHi: FreqHighRegister,
-                   private val mState: AudioKillSwitchRegister) {
+                   private val mState: AudioChannelStateRegister) {
 
     var enabled: Boolean = true
 

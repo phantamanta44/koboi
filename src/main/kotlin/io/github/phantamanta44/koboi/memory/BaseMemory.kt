@@ -79,6 +79,25 @@ class ToggleableMemoryArea(val backing: DirectObservableMemoryArea, var state: B
 
 }
 
+class ToggleableWriteMemoryArea(private val backing: DirectObservableMemoryArea, var state: Boolean) : DirectObservableMemoryArea() {
+
+    override var directObserver: IDirectMemoryObserver by PropDel.rw(backing::directObserver)
+
+    override val length: Int
+        get() = backing.length
+
+    override fun read(addr: Int, direct: Boolean): Byte = backing.read(addr, direct)
+
+    override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = backing.readRange(firstAddr, lastAddr)
+
+    override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
+        if (state || direct) backing.write(addr, *values, start = start, length = length, direct = direct)
+    }
+
+    override fun typeAt(addr: Int): String = "WriteToggle{ ${backing.typeAt(addr)} }"
+
+}
+
 class EchoMemoryArea(private val delegate: DirectObservableMemoryArea, override val length: Int) : DirectObservableMemoryArea() {
 
     override var directObserver: IDirectMemoryObserver by PropDel.rw(delegate::directObserver)
@@ -172,7 +191,7 @@ class MappedMemoryArea(vararg memSegments: DirectObservableMemoryArea) : DirectO
         if (firstSegmentMaxWrite != toWrite) {
             toWrite -= firstSegmentMaxWrite
             while (toWrite > 0) {
-                val segment = segments[index++]
+                val segment = segments[++index]
                 val segmentMaxWrite = min(segment.second.length, toWrite)
                 segment.second.write(0, *values, start = length - toWrite, length = segmentMaxWrite, direct = direct)
                 toWrite -= segmentMaxWrite

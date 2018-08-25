@@ -109,7 +109,7 @@ class AModBreaker(session: ArtemisDebugSession) : ArtemisModule("Breakpoints", "
     fun showExportDialog() {
         val dialog = FileChooser()
         dialog.title = "Export Breakpoints"
-        dialog.extensionFilters += FileChooser.ExtensionFilter("Breakpoint List", "json")
+        dialog.extensionFilters += FileChooser.ExtensionFilter("Breakpoint List", "*.json")
         val file = dialog.showSaveDialog(stage)
         if (file != null) {
             val bpArr = JSONArray()
