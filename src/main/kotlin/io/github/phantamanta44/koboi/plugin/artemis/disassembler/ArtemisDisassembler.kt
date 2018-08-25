@@ -57,11 +57,16 @@ class DisassembledMemory(private val gbMem: IMemoryArea) {
         known.set(op.addr, op.addr + op.length)
     }
 
+    val firstKnownOp: Map.Entry<Int, DisassembledOp>
+        get() = memory.firstEntry()
+
     fun getOperation(addr: Int): Map.Entry<Int, DisassembledOp> = memory.floorEntry(addr)
 
     fun getPreviousOperation(addr: Int): Map.Entry<Int, DisassembledOp>? = memory.lowerEntry(addr)
 
     fun getNextOperation(addr: Int): Map.Entry<Int, DisassembledOp>? = memory.higherEntry(addr)
+
+    fun isKnown(op: DisassembledOp): Boolean = (op.addr..(op.addr + op.length - 1)).all { known.get(it) }
 
     fun markDirty(addr: Int, length: Int) = known.clear(addr, addr + length)
 

@@ -6,8 +6,13 @@ import io.github.phantamanta44.koboi.util.toShortHex
 import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 import javafx.fxml.FXML
-import javafx.scene.control.*
+import javafx.scene.control.ListCell
+import javafx.scene.control.ListView
+import javafx.scene.control.TableRow
+import javafx.scene.control.TableView
+import javafx.stage.FileChooser
 import javafx.util.Callback
+import java.io.PrintStream
 import java.util.*
 
 class AModDisassembler(session: ArtemisDebugSession) : ArtemisModule("Disassembler", "artemis_dis", session) {
@@ -42,6 +47,27 @@ class AModDisassembler(session: ArtemisDebugSession) : ArtemisModule("Disassembl
         for (i in 1..25) tblMem.items.add(EmptyOp)
 
         elemCallStack.cellFactory = Callback { AddressListCell() }
+    }
+
+    @FXML
+    fun dumpToFile() {
+        val dialog = FileChooser()
+        dialog.title = "Dump Known Code"
+        dialog.extensionFilters += FileChooser.ExtensionFilter("Disassembly Dump", "*.*")
+        val file = dialog.showSaveDialog(stage)
+        if (file != null) {
+            PrintStream(file).use {
+                var op: Map.Entry<Int, DisassembledOp>? = disassembler.firstKnownOp
+                if (op != null) {
+                    do {
+                        if (disassembler.isKnown(op!!.value)) {
+                            it.println("${op.value.addr.toShortHex()}: ${op.value.propStringValue.value}")
+                        }
+                        op = disassembler.getNextOperation(op.key)
+                    } while (op != null)
+                }
+            }
+        }
     }
 
     private fun recalculateDisassembly() {
