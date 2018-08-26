@@ -1,5 +1,8 @@
 package io.github.phantamanta44.koboi.audio
 
+import io.github.phantamanta44.koboi.memory.FreqHighRegister
+import io.github.phantamanta44.koboi.memory.FreqLowRegister
+
 class AudioDac(private val disable: () -> Unit) {
 
     private var _enabled: Boolean = false
@@ -13,30 +16,69 @@ class AudioDac(private val disable: () -> Unit) {
 
 }
 
-class Sweeper(private val generator: ISquareAudioGenerator, private val disable: () -> Unit) {
+class Sweeper(private val lo: FreqLowRegister, private val hi: FreqHighRegister,
+              private val generator: ISquareAudioGenerator, private val disable: () -> Unit) {
 
+    var period: Int = 0 // in 128ths of a second
+    var shift: Int = 0
+    private var _operation: Operation = Operation.ADD
+    var operation: Operation
+        get() = _operation
+        set(value) {
+            if (subtracted && value == Operation.ADD) {
+                overflow()
+            }
+            _operation = value
+        }
+
+    private val effectivePeriod: Int
+        get() = if (period == 0) 8 else period
     var enabled: Boolean = false
-    var period: Int = 1 // in 128ths of a second
-    var factor: Int = 2
-    var operation: Operation = Operation.ADD
-
-    var timer: Int = 0
+    var freqRegVal: Int = 0
+    private var timer: Int = 0
+    private var subtracted: Boolean = false
 
     fun cycle() {
-        if (enabled && ++timer > period) {
-            timer = 0
-            val current = generator.period
-            val newPeriod = operation.apply(current, -current / factor)
-            if (newPeriod >= 2048 || newPeriod < 0) {
-                disable()
-            } else {
-                generator.period = newPeriod
+        if (enabled && --timer == 0) {
+            timer = effectivePeriod
+            if (period != 0) {
+                calculate()?.let {
+                    if (shift != 0) {
+                        freqRegVal = it
+                        generator.period = 2048 - it
+                        lo.value = (it and 0xFF).toByte()
+                        hi.freqBits = (it and 0x700) ushr 8
+                        calculate()
+                    }
+                }
             }
         }
     }
 
     fun reset() {
-        timer = 0
+        subtracted = false
+        timer = effectivePeriod
+        if (shift == 0) {
+            enabled = period != 0
+        } else {
+            enabled = true
+            calculate()
+        }
+    }
+
+    private fun calculate(): Int? {
+        val newPeriod = operation.apply(freqRegVal, freqRegVal ushr shift)
+        if (operation == Operation.SUBTRACT) subtracted = true
+        return if (newPeriod >= 2048) {
+            overflow()
+            null
+        } else {
+            newPeriod and 0x7FF
+        }
+    }
+
+    private fun overflow() {
+        disable()
     }
 
 }
@@ -51,8 +93,17 @@ class LengthCounter(private val counterMax: Int, private val disable: () -> Unit
         if (enabled && counter > 0 && --counter == 0) disable()
     }
 
-    fun reset() {
-        if (counter == 0) counter = counterMax
+    fun reset(): Boolean {
+        return if (counter == 0) {
+            counter = counterMax
+            true
+        } else {
+            false
+        }
+    }
+
+    fun resetAndEnable() {
+        if (counter <= 1) counter = counterMax - 1
     }
 
 }
@@ -62,7 +113,7 @@ class VolumeEnvelope(private val channel: IAudioChannel<IAudioGenerator>) {
     var initialVolume: Int = 0
     var enabled: Boolean = false
     var period: Int = 1 // in 64ths of a second
-    var operation : Operation = Operation.SUBTRACT
+    var operation: Operation = Operation.SUBTRACT
 
     var volume: Int = 0
     var timer: Int = 0

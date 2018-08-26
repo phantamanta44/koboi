@@ -15,7 +15,7 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     var enabled: Boolean = true
 
     val c1Dac: AudioDac = AudioDac(::c1Disable)
-    val c1ToneSweep: Sweeper = Sweeper(audio.channel1.generator, ::c1Disable)
+    val c1ToneSweep: Sweeper = Sweeper(mC1FreqLo, mC1FreqHi, audio.channel1.generator, ::c1Disable)
     val c1LengthCounter: LengthCounter = LengthCounter(64, ::c1Disable)
     val c1VolumeEnv: VolumeEnvelope = VolumeEnvelope(audio.channel1)
 
@@ -30,24 +30,41 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     val c4LengthCounter: LengthCounter = LengthCounter(64, ::c4Disable)
     val c4VolumeEnv: VolumeEnvelope = VolumeEnvelope(audio.channel4)
 
+    private var audioTimer: Long = 0
+
+    fun testAudioTimer(bit: Long): Boolean = audioTimer and bit != 0L
+
+    private fun testAudioTimerEdge(bit: Long): Boolean = (audioTimer - 1) and bit > audioTimer and bit
+
+    fun powerUp() {
+        enabled = true
+        audioTimer = (audioTimer + 1) % 512
+    }
+
     fun cycle() {
-        if (enabled && clock.globalTimer % 16384L == 0L) { // 256 Hz
-            val d64 = clock.globalTimer % 65536L == 0L // 64 Hz
+        if (testAudioTimerEdge(0x8000)) { // 64 Hz
             if (audio.channel1.enabled) {
-                if (clock.globalTimer % 32768L == 0L) c1ToneSweep.cycle() // 128 Hz
-                if (d64) c1VolumeEnv.cycle()
+                c1VolumeEnv.cycle()
             }
-            c1LengthCounter.cycle()
             if (audio.channel2.enabled) {
-                if (d64) c2VolumeEnv.cycle()
+                c2VolumeEnv.cycle()
             }
+            if (audio.channel4.enabled) {
+                c4VolumeEnv.cycle()
+            }
+        }
+        if (testAudioTimerEdge(0x4000)) { // 128 Hz
+            if (audio.channel1.enabled) {
+                c1ToneSweep.cycle()
+            }
+        }
+        if (enabled && testAudioTimerEdge(0x2000)) { // 256 Hz
+            c1LengthCounter.cycle()
             c2LengthCounter.cycle()
             c3LengthCounter.cycle()
-            if (audio.channel4.enabled) {
-                if (d64) c4VolumeEnv.cycle()
-            }
             c4LengthCounter.cycle()
         }
+        ++audioTimer
     }
 
     fun kill() {
@@ -92,10 +109,11 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
             audio.channel1.enabled = true
         }
         audio.channel1.resetSound()
+        val freqRegVal = mC1FreqLo.value.toUnsignedInt() or (mC1FreqHi.freqBits shl 8)
+        c1ToneSweep.freqRegVal = freqRegVal
         c1ToneSweep.reset()
-        c1LengthCounter.reset()
         c1VolumeEnv.reset()
-        c1UpdateFrequency()
+        audio.channel1.generator.period = 2048 - freqRegVal
     }
 
     fun c2RestartSound() {
@@ -104,7 +122,6 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
             audio.channel2.enabled = true
         }
         audio.channel2.resetSound()
-        c2LengthCounter.reset()
         c2VolumeEnv.reset()
     }
 
@@ -114,7 +131,6 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
             audio.channel3.enabled = true
         }
         audio.channel3.resetSound()
-        c3LengthCounter.reset()
     }
 
     fun c4RestartSound() {
@@ -123,7 +139,6 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
             audio.channel4.enabled = true
         }
         audio.channel4.resetSound()
-        c4LengthCounter.reset()
         c4VolumeEnv.reset()
     }
 

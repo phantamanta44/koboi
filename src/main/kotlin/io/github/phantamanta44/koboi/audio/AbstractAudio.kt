@@ -57,7 +57,9 @@ interface ILfsrAudioGenerator : IFrequencyAudioGenerator {
 interface IFrequencyAudioGenerator : IAudioGenerator {
 
     /**
-     * in 131072nds of a second or 524288ths of a second or 65536ths of a second
+     * Square wave generator: 131072nds of a second
+     * LSFR: 524288ths of a second
+     * Wave channel: 65536ths of a second
      */
     var period: Int
 

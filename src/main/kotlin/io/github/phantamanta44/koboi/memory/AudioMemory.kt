@@ -20,15 +20,9 @@ class Ch1SweepRegister(engine: GameEngine) : BiDiBitwiseRegister(readableMask = 
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        val sweepTime0 = sweepTime
-        if (sweepTime0 == 0) {
-            sweeper.enabled = false
-        } else {
-            sweeper.enabled = true
-            sweeper.period = sweepTime0
-            sweeper.factor = 1 shl sweepShift
-            sweeper.operation = if (subtract) Operation.SUBTRACT else Operation.ADD
-        }
+        sweeper.period = sweepTime
+        sweeper.shift = sweepShift
+        sweeper.operation = if (subtract) Operation.SUBTRACT else Operation.ADD
     }
 
     override fun typeAt(addr: Int): String = "RACh1Sweep"
@@ -119,8 +113,29 @@ class FreqHighRegister(private val engine: GameEngine,
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
         engine.audio.updateFrequency()
-        lengthCounter.enabled = respectLength
-        if (initial) engine.audio.restartSound()
+        if (respectLength) {
+            if (!lengthCounter.enabled) {
+                lengthCounter.enabled = true
+                if (initial) {
+                    engine.audio.restartSound()
+                    lengthCounter.resetAndEnable()
+                } else if (!engine.audio.testAudioTimer(0x2000)) {
+                    lengthCounter.cycle()
+                }
+            } else if (initial) {
+                engine.audio.restartSound()
+                if (lengthCounter.reset() && !engine.audio.testAudioTimer(0x2000)) lengthCounter.cycle()
+            }
+        } else if (lengthCounter.enabled) {
+            lengthCounter.enabled = false
+            if (initial) {
+                engine.audio.restartSound()
+                lengthCounter.reset()
+            }
+        } else if (initial) {
+            engine.audio.restartSound()
+            lengthCounter.reset()
+        }
     }
 
     override fun typeAt(addr: Int): String = "RAFreqHigh"
@@ -225,8 +240,29 @@ class Ch4ControlRegister(private val engine: GameEngine) : BiDiBitwiseRegister(r
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        lengthCounter.enabled = respectLength
-        if (initial) engine.audio.c4RestartSound()
+        if (respectLength) {
+            if (!lengthCounter.enabled) {
+                lengthCounter.enabled = true
+                if (initial) {
+                    engine.audio.c4RestartSound()
+                    lengthCounter.resetAndEnable()
+                } else if (!engine.audio.testAudioTimer(0x2000)) {
+                    lengthCounter.cycle()
+                }
+            } else if (initial) {
+                engine.audio.c4RestartSound()
+                if (lengthCounter.reset() && !engine.audio.testAudioTimer(0x2000)) lengthCounter.cycle()
+            }
+        } else if (lengthCounter.enabled) {
+            lengthCounter.enabled = false
+            if (initial) {
+                engine.audio.c4RestartSound()
+                lengthCounter.reset()
+            }
+        } else if (initial) {
+            engine.audio.c4RestartSound()
+            lengthCounter.reset()
+        }
     }
 
     override fun typeAt(addr: Int): String = "RACh4Control"
@@ -296,7 +332,7 @@ class AudioChannelStateRegister(private val engine: GameEngine, private val memA
         if (enableAudio) {
             if (!memAudio.state) {
                 memAudio.state = true
-                engine.audio.enabled = true
+                engine.audio.powerUp()
             }
         } else if (memAudio.state) {
             engine.audio.enabled = false

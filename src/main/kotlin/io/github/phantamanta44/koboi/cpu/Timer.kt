@@ -31,7 +31,11 @@ class Timer(private val memDivider: TimerDividerRegister, private val memTimerCo
         }
     }
 
-    private fun testGlobalTimer(bit: Long): Boolean = globalTimer and bit != 0L
+    fun testGlobalTimer(bit: Long): Boolean = globalTimer and bit != 0L
+
+    fun testBitRisingEdge(bit: Long): Boolean = (globalTimer - 1) and bit < globalTimer and bit
+
+    fun testBitFallingEdge(bit: Long): Boolean = (globalTimer - 1) and bit > globalTimer and bit
 
     fun cycle() {
         checkDivider()

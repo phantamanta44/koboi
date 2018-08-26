@@ -21,7 +21,7 @@ class DebugTarget(private val engine: GameEngine) : IDebugTarget {
     override val tCycle: Long
         get() = engine.gameTick
 
-    lateinit var session: IDebugSession
+    internal lateinit var session: IDebugSession
 
     private val frozen: AtomicBoolean = AtomicBoolean(false)
     private val lock: ReentrantLock = ReentrantLock()
