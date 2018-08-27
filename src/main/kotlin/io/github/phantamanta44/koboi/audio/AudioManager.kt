@@ -5,12 +5,28 @@ import io.github.phantamanta44.koboi.memory.AudioChannelStateRegister
 import io.github.phantamanta44.koboi.memory.FreqHighRegister
 import io.github.phantamanta44.koboi.memory.FreqLowRegister
 import io.github.phantamanta44.koboi.util.toUnsignedInt
+import java.util.*
 
 class AudioManager(val audio: IAudioInterface, private val clock: Timer,
                    private val mC1FreqLo: FreqLowRegister, private val mC1FreqHi: FreqHighRegister,
                    private val mC2FreqLo: FreqLowRegister, private val mC2FreqHi: FreqHighRegister,
                    private val mC3FreqLo: FreqLowRegister, private val mC3FreqHi: FreqHighRegister,
                    private val mState: AudioChannelStateRegister) {
+
+    companion object {
+
+        private val sequencerFrames: Array<SequencerFrame> = arrayOf(
+                SequencerFrame(true, false, false),
+                SequencerFrame(false, false, false),
+                SequencerFrame(true, true, false),
+                SequencerFrame(false, false, false),
+                SequencerFrame(true, false, false),
+                SequencerFrame(false, false, false),
+                SequencerFrame(true, true, false),
+                SequencerFrame(false, false, true)
+        )
+
+    }
 
     var enabled: Boolean = true
 
@@ -30,47 +46,49 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     val c4LengthCounter: LengthCounter = LengthCounter(64, ::c4Disable)
     val c4VolumeEnv: VolumeEnvelope = VolumeEnvelope(audio.channel4)
 
-    private var audioTimer: Long = 0
-
-    fun testAudioTimer(bit: Long): Boolean = audioTimer and bit != 0L
-
-    private fun testAudioTimerEdge(bit: Long): Boolean = (audioTimer - 1) and bit > audioTimer and bit
+    private var sequencerIndex: Int = 0
+    val frame: SequencerFrame
+        get() = sequencerFrames[sequencerIndex]
+    private var divider: Int = 0
 
     fun powerUp() {
         enabled = true
-        audioTimer = (audioTimer + 1) % 512
+        sequencerIndex = 7
     }
 
     fun cycle() {
-        if (testAudioTimerEdge(0x8000)) { // 64 Hz
-            if (audio.channel1.enabled) {
-                c1VolumeEnv.cycle()
+        if (++divider == 8192) {
+            divider = 0
+            sequencerIndex = (sequencerIndex + 1) % 8
+            if (frame.clock64) {
+                if (audio.channel1.enabled) {
+                    c1VolumeEnv.cycle()
+                }
+                if (audio.channel2.enabled) {
+                    c2VolumeEnv.cycle()
+                }
+                if (audio.channel4.enabled) {
+                    c4VolumeEnv.cycle()
+                }
             }
-            if (audio.channel2.enabled) {
-                c2VolumeEnv.cycle()
+            if (frame.clock128) {
+                if (audio.channel1.enabled) {
+                    c1ToneSweep.cycle()
+                }
             }
-            if (audio.channel4.enabled) {
-                c4VolumeEnv.cycle()
+            if (frame.clock256) {
+                c1LengthCounter.cycle()
+                c2LengthCounter.cycle()
+                c3LengthCounter.cycle()
+                c4LengthCounter.cycle()
             }
         }
-        if (testAudioTimerEdge(0x4000)) { // 128 Hz
-            if (audio.channel1.enabled) {
-                c1ToneSweep.cycle()
-            }
-        }
-        if (enabled && testAudioTimerEdge(0x2000)) { // 256 Hz
-            c1LengthCounter.cycle()
-            c2LengthCounter.cycle()
-            c3LengthCounter.cycle()
-            c4LengthCounter.cycle()
-        }
-        ++audioTimer
     }
 
     fun kill() {
         audio.kill()
     }
-    
+
     private fun c1Disable() {
         audio.channel1.enabled = false
         mState.c1Alive = false
@@ -143,3 +161,5 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     }
 
 }
+
+class SequencerFrame(val clock256: Boolean, val clock128: Boolean, val clock64: Boolean)

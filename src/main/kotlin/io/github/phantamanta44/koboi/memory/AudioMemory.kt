@@ -119,12 +119,12 @@ class FreqHighRegister(private val engine: GameEngine,
                 if (initial) {
                     engine.audio.restartSound()
                     lengthCounter.resetAndEnable()
-                } else if (!engine.audio.testAudioTimer(0x2000)) {
+                } else if (engine.audio.frame.clock256) {
                     lengthCounter.cycle()
                 }
             } else if (initial) {
                 engine.audio.restartSound()
-                if (lengthCounter.reset() && !engine.audio.testAudioTimer(0x2000)) lengthCounter.cycle()
+                if (lengthCounter.reset() && engine.audio.frame.clock256) lengthCounter.cycle()
             }
         } else if (lengthCounter.enabled) {
             lengthCounter.enabled = false
@@ -246,12 +246,12 @@ class Ch4ControlRegister(private val engine: GameEngine) : BiDiBitwiseRegister(r
                 if (initial) {
                     engine.audio.c4RestartSound()
                     lengthCounter.resetAndEnable()
-                } else if (!engine.audio.testAudioTimer(0x2000)) {
+                } else if (engine.audio.frame.clock256) {
                     lengthCounter.cycle()
                 }
             } else if (initial) {
                 engine.audio.c4RestartSound()
-                if (lengthCounter.reset() && !engine.audio.testAudioTimer(0x2000)) lengthCounter.cycle()
+                if (lengthCounter.reset() && engine.audio.frame.clock256) lengthCounter.cycle()
             }
         } else if (lengthCounter.enabled) {
             lengthCounter.enabled = false
