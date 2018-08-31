@@ -50,6 +50,7 @@ class Cpu(val engine: GameEngine,
     private var idleCycles: Int = 0
     private val opQueue: Queue<Insn> = LinkedList()
     private var opcode: Byte = 0
+    val opStk: OpStack = OpStack()
 
     var imeChangeNextInsn: ImeChange = ImeChange.NONE
     var imeChangeThisInsn: ImeChange = ImeChange.NONE

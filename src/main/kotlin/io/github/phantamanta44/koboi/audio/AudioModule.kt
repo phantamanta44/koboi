@@ -137,6 +137,50 @@ class VolumeEnvelope(private val channel: IAudioChannel<IAudioGenerator>) {
 
 }
 
+class WaveIndexer(private val generator: IWavePatternAudioGenerator) {
+
+    companion object {
+
+        private val INDICES: List<Pair<Int, Boolean>> = (0..15)
+                .flatMap { listOf(it to true, it to false) }
+
+        private const val DIVIDER_BOUND: Int = 2
+
+    }
+
+    var period: Int = 0
+
+    private var divider: Int = 0
+    private var counter: Int = 0
+    private var index: Int = 0
+
+    fun cycle() {
+        if (++divider == DIVIDER_BOUND) {
+            divider = 0
+            if (--counter == 0) {
+                counter = period
+                index = (index + 1) % 32
+                uploadIndex()
+            }
+        }
+    }
+
+    fun reset() {
+        divider = -6
+        counter = period
+        index = 0
+        uploadIndex()
+    }
+
+    private fun uploadIndex() {
+        INDICES[index].let {
+            generator.activeByte = it.first
+            generator.highNibble = it.second
+        }
+    }
+
+}
+
 enum class Operation(val apply: (Int, Int) -> Int) {
 
     ADD(Int::plus),

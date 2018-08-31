@@ -5,7 +5,7 @@ import io.github.phantamanta44.koboi.util.toUnsignedInt
 object Opcodes {
     // TODO handle each read of memory on a different M-cycle (maybe implement an internal stack in Cpu?)
     private val opcodeTable: Array<Insn> = arrayOf(
-            idle(3) then (trace also advance()), // 00
+            idle(3) then (trace and advance()), // 00
             idle(11) then (loadHardShort into writeRegister(Cpu::regBC)), // 01
             idle(7) then (loadRegister(Cpu::regA) into writePointer(Cpu::regBC)), // 02
             idle(7) then increment16(Cpu::regBC), // 03
@@ -41,7 +41,7 @@ object Opcodes {
 
             predicate(nonZero,
                     idle(11) then jumpRelative,
-                    idle(7) then (trace also advance(2))), // 20
+                    idle(7) then (trace and advance(2))), // 20
             idle(11) then (loadHardShort into writeRegister(Cpu::regHL)), // 21
             idle(7) then (loadRegister(Cpu::regA) into writeHLPointerThenAdvance), // 22
             idle(7) then increment16(Cpu::regHL), // 23
@@ -51,7 +51,7 @@ object Opcodes {
             idle(3) then daa, // 27
             predicate(isZero,
                     idle(11) then jumpRelative,
-                    idle(7) then (trace also advance(2))), // 28
+                    idle(7) then (trace and advance(2))), // 28
             idle(7) then (loadRegister16AsInt(Cpu::regHL) into incRegister16(Cpu::regHL)), // 29
             idle(7) then (loadHLPointerThenAdvance into writeRegister(Cpu::regA)), // 2a
             idle(7) then decrement16(Cpu::regHL), // 2b
@@ -62,17 +62,17 @@ object Opcodes {
 
             predicate(nonCarry,
                     idle(11) then jumpRelative,
-                    idle(7) then (trace also advance(2))), // 30
+                    idle(7) then (trace and advance(2))), // 30
             idle(11) then (loadHardShort into writeRegister(Cpu::regSP)), // 31
             idle(7) then (loadRegister(Cpu::regA) into writeHLPointerThenBacktrack), // 32
             idle(7) then increment16(Cpu::regSP), // 33
-            idle(11) then incrementPointer(Cpu::regHL), // 34
-            idle(11) then decrementPointer(Cpu::regHL), // 35
+            idle(4) then incrementHlPointer, // 34
+            idle(4) then decrementHlPointer, // 35
             idle(11) then (loadHardByte into writePointer(Cpu::regHL)), // 36
             idle(3) then scf, // 37
             predicate(isCarry,
                     idle(11) then jumpRelative,
-                    idle(7) then (trace also advance(2))), // 38
+                    idle(7) then (trace and advance(2))), // 38
             idle(7) then (loadRegister16AsInt(Cpu::regSP) into incRegister16(Cpu::regHL)), // 39
             idle(7) then (loadHLPointerThenBacktrack into writeRegister(Cpu::regA)), // 3a
             idle(7) then decrement16(Cpu::regSP), // 3b
@@ -219,58 +219,58 @@ object Opcodes {
 
             predicate(nonZero,
                     idle(19) then stackReturn,
-                    idle(7) then (trace also advance())), // c0
+                    idle(7) then (trace and advance())), // c0
             idle(11) then stackPop(Cpu::regBC), // c1
             predicate(nonZero,
                     idle(15) then jumpAbsolute(loadHardShort),
-                    idle(11) then (trace also advance(3))), // c2
+                    idle(11) then (trace and advance(3))), // c2
             idle(15) then jumpAbsolute(loadHardShort), // c3
             predicate(nonZero,
                     idle(23) then stackCall(loadHardShort),
-                    idle(11) then (trace also advance(3))), // c4
+                    idle(11) then (trace and advance(3))), // c4
             idle(15) then stackPush(Cpu::regBC), // c5
             idle(7) then (loadHardByteAsInt into incRegister8(Cpu::regA)), // c6
             idle(15) then stackCall({ 0x00 }), // c7
             predicate(isZero,
                     idle(19) then stackReturn,
-                    idle(7) then (trace also advance())), // c8
+                    idle(7) then (trace and advance())), // c8
             idle(15) then stackReturn, // c9
             predicate(isZero,
                     idle(15) then jumpAbsolute(loadHardShort),
-                    idle(11) then (trace also advance(3))), // ca
+                    idle(11) then (trace and advance(3))), // ca
             doCbPrefixedOpcode, // cb
             predicate(isZero,
                     idle(23) then stackCall(loadHardShort),
-                    idle(11) then (trace also advance(3))), // cc
+                    idle(11) then (trace and advance(3))), // cc
             idle(23) then stackCall(loadHardShort), // cd
             idle(7) then (loadHardByteAsInt into adcRegister8(Cpu::regA)), // ce
             idle(15) then stackCall({ 0x08 }), // cf
 
             predicate(nonCarry,
                     idle(19) then stackReturn,
-                    idle(7) then (trace also advance())), // d0
+                    idle(7) then (trace and advance())), // d0
             idle(11) then stackPop(Cpu::regDE), // d1
             predicate(nonCarry,
                     idle(15) then jumpAbsolute(loadHardShort),
-                    idle(11) then (trace also advance(3))), // d2
+                    idle(11) then (trace and advance(3))), // d2
             unknownOpcode(0xD3), // d3
             predicate(nonCarry,
                     idle(23) then stackCall(loadHardShort),
-                    idle(11) then (trace also advance(3))), // d4
+                    idle(11) then (trace and advance(3))), // d4
             idle(15) then stackPush(Cpu::regDE), // d5
             idle(7) then (loadHardByteAsInt into decRegister8(Cpu::regA)), // d6
             idle(15) then stackCall({ 0x10 }), // d7
             predicate(isCarry,
                     idle(19) then stackReturn,
-                    idle(7) then (trace also advance())), // d8
-            idle(15) then (stackReturn also { it.flagIME = true; }), // d9
+                    idle(7) then (trace and advance())), // d8
+            idle(15) then (stackReturn and { it.flagIME = true; }), // d9
             predicate(isCarry,
                     idle(15) then jumpAbsolute(loadHardShort),
-                    idle(11) then (trace also advance(3))), // da
+                    idle(11) then (trace and advance(3))), // da
             unknownOpcode(0xDB), // db
             predicate(isCarry,
                     idle(23) then stackCall(loadHardShort),
-                    idle(11) then (trace also advance(3))), // dc
+                    idle(11) then (trace and advance(3))), // dc
             unknownOpcode(0xDD), // dd
             idle(7) then (loadHardByteAsInt into sbcRegister8(Cpu::regA)), // de
             idle(15) then stackCall({ 0x18 }), // df

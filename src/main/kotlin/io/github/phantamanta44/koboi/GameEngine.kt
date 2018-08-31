@@ -147,7 +147,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         } } // FF1C NR32 channel 3 output level
         val memAudio3FreqLo = FreqLowRegister(this, AudioManager::c3UpdateFrequency) // FF1D NR33 channel 3 frequency low
         val memAudio3FreqHi = FreqHighRegister(this, AudioManager::c3LengthCounter, AudioManager::c3UpdateFrequency, AudioManager::c3RestartSound) // FF1E NR34 channel 3 frequency high
-        val memAudio3WavePattern = Ch3WavePatternMemoryArea(this, memAudio3Enable) // FF30-FF3F channel 3 wave pattern data
+        val memAudio3WavePattern = Ch3WavePatternMemoryArea(this) // FF30-FF3F channel 3 wave pattern data
 
         val memAudio4Length = Ch4LengthRegister(this) // FF20 NR41 channel 4 sound length
         val memAudio4Volume = VolumeEnvelopeRegister(this, IAudioInterface::channel4, AudioManager::c4VolumeEnv, AudioManager::c4Dac) // FF21 NR42 channel 4 volume envelope
@@ -182,7 +182,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         ), true)
         val memAudioState = AudioChannelStateRegister(this, memAudio) // FF26 NR52 audio channel state
 
-        audio = AudioManager(audioIface, clock,
+        audio = AudioManager(audioIface,
                 memAudio1FreqLo, memAudio1FreqHi,
                 memAudio2FreqLo, memAudio2FreqHi,
                 memAudio3FreqLo, memAudio3FreqHi,

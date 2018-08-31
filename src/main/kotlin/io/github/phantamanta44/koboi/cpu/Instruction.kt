@@ -16,9 +16,9 @@ typealias CpuIn8 = (Cpu) -> (Byte) -> Unit
 typealias CpuIn16 = (Cpu) -> (Short) -> Unit
 typealias CpuInInt = (Cpu) -> (Int) -> Unit
 
-infix fun (Insn).then(o: Insn): Insn = { this(it); it.queue(o) }
+infix fun Insn.then(o: Insn): Insn = { this(it); it.queue(o) }
 
-infix fun (Insn).also(o: Insn): Insn = { this(it); o(it) }
+infix fun Insn.and(o: Insn): Insn = { this(it); o(it) }
 
 fun advance(count: Int = 1): Insn = { it.advance(count) }
 
@@ -128,6 +128,22 @@ val writeHLPointerThenBacktrack: CpuIn8 = {
     }
 }
 
+// CPU operations stack
+
+val csPush8: CpuIn8 = {
+    { byte -> it.opStk.u8(byte) }
+}
+
+val csPush16: CpuIn16 = {
+    { short -> it.opStk.u16(short) }
+}
+
+val csPop8: CpuOut8 = { it.opStk.u8() }
+
+val csPop16: CpuOut16 = { it.opStk.u16() }
+
+val csPopInt: CpuOutInt = { it.opStk.i8() }
+
 // Math destinations
 
 fun incRegister8(register: CpuReg8): CpuInInt = {
@@ -235,26 +251,38 @@ fun decrement16(register: CpuReg16): Insn = {
     register(it).decrement(1)
 }
 
-fun incrementPointer(addr: CpuReg16): Insn = {
+val incrementHlPointer: Insn = {
     it.trace()
     it.advance()
-    val addrInstance = addr(it).read().toUnsignedInt()
-    val initialValue = it.memory.read(addrInstance)
-    it.regF.kH = initialValue.toInt() and 0xF == 0xF
-    it.memory.write(addrInstance, initialValue.inc())
-    it.regF.kZ = it.memory.read(addrInstance) == 0.toByte()
-    it.regF.kN = false
+    it.idle(3)
+    it.queue { _ ->
+        val addr = it.regHL.read().toUnsignedInt()
+        val initialValue = it.memory.read(addr)
+        it.idle(4)
+        it.queue { _ ->
+            it.regF.kH = initialValue.toInt() and 0xF == 0xF
+            it.memory.write(addr, initialValue.inc())
+            it.regF.kZ = it.memory.read(addr) == 0.toByte()
+            it.regF.kN = false
+        }
+    }
 }
 
-fun decrementPointer(addr: CpuReg16): Insn = {
+val decrementHlPointer: Insn = {
     it.trace()
     it.advance()
-    val addrInstance = addr(it).read().toUnsignedInt()
-    val initialValue = it.memory.read(addrInstance)
-    it.regF.kH = initialValue.toInt() and 0x0F == 0
-    it.memory.write(addrInstance, initialValue.dec())
-    it.regF.kZ = it.memory.read(addrInstance) == 0.toByte()
-    it.regF.kN = true
+    it.idle(3)
+    it.queue { _ ->
+        val addr = it.regHL.read().toUnsignedInt()
+        val initialValue = it.memory.read(addr)
+        it.idle(4)
+        it.queue { _ ->
+            it.regF.kH = initialValue.toInt() and 0x0F == 0
+            it.memory.write(addr, initialValue.dec())
+            it.regF.kZ = it.memory.read(addr) == 0.toByte()
+            it.regF.kN = true
+        }
+    }
 }
 
 fun rotateLeft(register: CpuReg8): Insn = {

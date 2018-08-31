@@ -5,7 +5,7 @@ import io.github.phantamanta44.koboi.cpu.Timer
 
 class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, override val length: Int = rom.size) : DirectObservableMemoryArea() {
 
-    override fun read(addr: Int, direct: Boolean): Byte = rom[start + addr]
+    override fun read(addr: Int, direct: Boolean): Byte = rom[(start + addr) % rom.size]
 
     override fun readRange(firstAddr: Int, lastAddr: Int): IMemoryRange = StaticRomRange(firstAddr, lastAddr)
 
@@ -22,9 +22,9 @@ class StaticRomArea(private val rom: ByteArray, private val start: Int = 0, over
 
         override val length: Int = last - first
 
-        override fun get(index: Int): Byte = rom[start + first + index]
+        override fun get(index: Int): Byte = rom[(start + first + index) % rom.size]
 
-        override fun toArray(): ByteArray = rom.copyOfRange(start + first, start + last)
+        override fun toArray(): ByteArray = rom.copyOfRange(start + first, start + last) // TODO check for buffer overflow
 
     }
 

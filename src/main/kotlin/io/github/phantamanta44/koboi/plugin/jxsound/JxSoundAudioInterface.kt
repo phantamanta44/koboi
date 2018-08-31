@@ -24,7 +24,7 @@ class JxSoundAudioInterface : IAudioInterface {
         beginThread("4", channel4)
     }
 
-    private fun beginThread(number: String, channel: JxChannel<JxAudioProducer>) {
+    private fun beginThread(number: String, channel: JxChannel<IJxAudioProducer>) {
         thread(isDaemon = true, name = "JxSound channel $number thread") {
             while (alive.get()) channel.execute()
             channel.kill()
@@ -35,7 +35,7 @@ class JxSoundAudioInterface : IAudioInterface {
 
 }
 
-class JxChannel<out G : JxAudioProducer>(freq: Int, override val generator: G) : IAudioChannel<G> {
+class JxChannel<out G : IJxAudioProducer>(freq: Int, override val generator: G) : IAudioChannel<G> {
 
     override var enabled: Boolean = false
 

@@ -6,12 +6,20 @@ import io.github.phantamanta44.koboi.audio.ISquareAudioGenerator
 import io.github.phantamanta44.koboi.audio.IWavePatternAudioGenerator
 import io.github.phantamanta44.koboi.util.PropDel
 
-abstract class JxAudioProducer : IAudioGenerator {
+interface IJxAudioProducer : IAudioGenerator {
+
+    fun cycle(): Byte
+
+    fun resetSound()
+
+}
+
+abstract class JxFreqAudioProducer : IJxAudioProducer {
 
     private var counter: Int = 0
     protected abstract val counterBoundary: Int
 
-    open fun cycle(): Byte {
+    override fun cycle(): Byte {
         val clock = if (++counter >= counterBoundary) {
             counter = 0
             true
@@ -21,7 +29,7 @@ abstract class JxAudioProducer : IAudioGenerator {
         return generate(clock)
     }
 
-    open fun resetSound() {
+    override fun resetSound() {
         counter = 0
     }
 
@@ -30,7 +38,7 @@ abstract class JxAudioProducer : IAudioGenerator {
 }
 
 
-class SquareWaveProducer : JxAudioProducer(), ISquareAudioGenerator {
+class SquareWaveProducer : JxFreqAudioProducer(), ISquareAudioGenerator {
 
     override val counterBoundary: Int
         get() = period
@@ -65,39 +73,29 @@ class SquareWaveProducer : JxAudioProducer(), ISquareAudioGenerator {
 
 }
 
-class ArbitraryWaveAudioProducer : JxAudioProducer(), IWavePatternAudioGenerator {
+class ArbitraryWaveAudioProducer : IJxAudioProducer, IWavePatternAudioGenerator { // TODO this could be more sound
 
-    companion object {
+    override var activeByte: Int = 0
+    override var highNibble: Boolean = true
 
-        private val INDICES: List<Pair<Int, (Int) -> Int>> = (0..15)
-                .flatMap { listOf(it to { n: Int -> (n and 0xF0) ushr 4 }, it to { n: Int -> n and 0x0F }) }
-
-    }
-
-    override val counterBoundary: Int by PropDel.r(::period)
-    override var period: Int = 1
-
-    private var index: Int = 0
-
-    override fun cycle(): Byte = if (enabled) super.cycle() else 0
-
-    override fun generate(clock: Boolean): Byte {
-        val coords = INDICES[index]
-        if (clock) index = (index + 1) % 32
-        return Math.round((255F * coords.second(waveform[coords.first].toInt()) / 15F) - 128F).toByte()
+    override fun cycle(): Byte {
+        val sample = if (highNibble) {
+            (waveform[activeByte].toInt() and 0xF0) ushr 4
+        } else {
+            waveform[activeByte].toInt() and 0x0F
+        }
+        return Math.round((255F * sample / 15F) - 128F).toByte()
     }
 
     override fun resetSound() {
-        super.resetSound()
-        index = 0
+        // NO-OP
     }
 
-    override var enabled: Boolean = false
     override val waveform: ByteArray = ByteArray(16)
 
 }
 
-class NoiseAudioProducer : JxAudioProducer(), ILfsrAudioGenerator {
+class NoiseAudioProducer : JxFreqAudioProducer(), ILfsrAudioGenerator {
 
     override val counterBoundary: Int by PropDel.r(::period)
     override var period: Int = 1

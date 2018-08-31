@@ -1,13 +1,11 @@
 package io.github.phantamanta44.koboi.audio
 
-import io.github.phantamanta44.koboi.cpu.Timer
 import io.github.phantamanta44.koboi.memory.AudioChannelStateRegister
 import io.github.phantamanta44.koboi.memory.FreqHighRegister
 import io.github.phantamanta44.koboi.memory.FreqLowRegister
 import io.github.phantamanta44.koboi.util.toUnsignedInt
-import java.util.*
 
-class AudioManager(val audio: IAudioInterface, private val clock: Timer,
+class AudioManager(val audio: IAudioInterface,
                    private val mC1FreqLo: FreqLowRegister, private val mC1FreqHi: FreqHighRegister,
                    private val mC2FreqLo: FreqLowRegister, private val mC2FreqHi: FreqHighRegister,
                    private val mC3FreqLo: FreqLowRegister, private val mC3FreqHi: FreqHighRegister,
@@ -41,6 +39,7 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
 
     val c3Dac: AudioDac = AudioDac(::c3Disable)
     val c3LengthCounter: LengthCounter = LengthCounter(256, ::c3Disable)
+    val c3WaveIndexer: WaveIndexer = WaveIndexer(audio.channel3.generator)
 
     val c4Dac: AudioDac = AudioDac(::c4Disable)
     val c4LengthCounter: LengthCounter = LengthCounter(64, ::c4Disable)
@@ -57,6 +56,9 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     }
 
     fun cycle() {
+        if (audio.channel3.enabled) {
+            c3WaveIndexer.cycle()
+        }
         if (++divider == 8192) {
             divider = 0
             sequencerIndex = (sequencerIndex + 1) % 8
@@ -118,7 +120,7 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
     }
 
     fun c3UpdateFrequency() {
-        audio.channel3.generator.period = 2048 - (mC3FreqLo.value.toUnsignedInt() or (mC3FreqHi.freqBits shl 8))
+        c3WaveIndexer.period = 2048 - (mC3FreqLo.value.toUnsignedInt() or (mC3FreqHi.freqBits shl 8))
     }
 
     fun c1RestartSound() {
@@ -149,6 +151,7 @@ class AudioManager(val audio: IAudioInterface, private val clock: Timer,
             audio.channel3.enabled = true
         }
         audio.channel3.resetSound()
+        c3WaveIndexer.reset()
     }
 
     fun c4RestartSound() {

@@ -2,6 +2,7 @@ package io.github.phantamanta44.koboi.memory
 
 import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.audio.*
+import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 typealias ManagerRef<T> = (AudioManager) -> T
@@ -145,19 +146,12 @@ class FreqHighRegister(private val engine: GameEngine,
 class Ch3EnableRegister(engine: GameEngine) : BiDiBitwiseRegister(readableMask = 0b10000000) {
 
     private val dac: AudioDac by lazy { engine.audio.c3Dac }
-    private val generator: IWavePatternAudioGenerator by lazy { engine.audio.audio.channel3.generator }
 
     var enabled: Boolean by delegateBit(7)
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        if (enabled) {
-            dac.enabled = true
-            generator.enabled = true
-        } else {
-            dac.enabled = false
-            generator.enabled = false
-        }
+        dac.enabled = enabled
     }
 
 }
@@ -177,19 +171,28 @@ class Ch3LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
 
 }
 
-class Ch3WavePatternMemoryArea(engine: GameEngine, private val enableRegister: Ch3EnableRegister) : SimpleMemoryArea(16) {
+class Ch3WavePatternMemoryArea(val engine: GameEngine) : SimpleMemoryArea(16) {
 
-    private val generator: IWavePatternAudioGenerator by lazy { engine.audio.audio.channel3.generator }
+    private val channel: IAudioChannel<IWavePatternAudioGenerator> by lazy { engine.audio.audio.channel3 }
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
-        if (direct || !enableRegister.enabled) {
+        if (channel.enabled && !direct) {
+            val activeAddr = channel.generator.activeByte
+            values[start + length - 1].let {
+                memory[activeAddr] = it
+                channel.generator.waveform[activeAddr] = it
+            }
+            directObserver.onMemMutate(activeAddr, 1)
+        } else {
             super.write(addr, *values, start = start, length = length, direct = direct)
-            System.arraycopy(memory, 0, generator.waveform, 0, 16)
+            System.arraycopy(memory, addr, channel.generator.waveform, addr, length)
             directObserver.onMemMutate(addr, length)
         }
     }
 
-    // TODO weird reading-while-enabled issue
+    override fun read(addr: Int, direct: Boolean): Byte {
+        return if (channel.enabled && !direct) memory[channel.generator.activeByte] else memory[addr]
+    }
 
     override fun typeAt(addr: Int): String = "RACh3WaveRAM"
 

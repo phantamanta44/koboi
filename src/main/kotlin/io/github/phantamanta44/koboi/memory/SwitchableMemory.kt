@@ -93,10 +93,10 @@ class Mbc1(rom: ByteArray) : IMemoryBankController {
                     },
                     ControlMemoryArea(8192) { // 4000-5FFF
                         if (writeType) {
+                            ramCtrl.active = it.toInt() and 0b00000011
+                        } else {
                             romCtrl.active = (romCtrl.active and 0b00011111) or ((it.toInt() and 0b00000011) shl 5)
                             fixRomBank()
-                        } else {
-                            ramCtrl.active = it.toInt() and 0b00000011
                         }
                     },
                     ControlMemoryArea(8192) { // 6000-7FFF

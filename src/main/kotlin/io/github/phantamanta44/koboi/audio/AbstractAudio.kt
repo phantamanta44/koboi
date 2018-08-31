@@ -40,11 +40,13 @@ interface ISquareAudioGenerator : IFrequencyAudioGenerator {
 
 }
 
-interface IWavePatternAudioGenerator : IFrequencyAudioGenerator {
-
-    var enabled: Boolean
+interface IWavePatternAudioGenerator : IAudioGenerator {
 
     val waveform: ByteArray
+
+    var activeByte: Int
+
+    var highNibble: Boolean
 
 }
 
