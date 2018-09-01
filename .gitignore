@@ -12,10 +12,8 @@
 /.gradle/
 
 # It's a secret to everybody
-*.gb
-*.gbc
-*.gba
 *.log
+/testrom/
 
 # Natives
 *.dll
