@@ -2,7 +2,6 @@ package io.github.phantamanta44.koboi.memory
 
 import io.github.phantamanta44.koboi.GameEngine
 import io.github.phantamanta44.koboi.audio.*
-import io.github.phantamanta44.koboi.util.toUnsignedHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
 
 typealias ManagerRef<T> = (AudioManager) -> T
@@ -215,6 +214,12 @@ class Ch4LengthRegister(engine: GameEngine) : SingleByteMemoryArea() {
 
 class Ch4PolyCounterRegister(engine: GameEngine) : BitwiseRegister() {
 
+    companion object {
+
+        private val DIVIDERS: IntArray = intArrayOf(1, 2, 4, 6, 8, 10, 12, 14)
+
+    }
+
     private val generator: ILfsrAudioGenerator by lazy { engine.audio.audio.channel4.generator }
 
     private var freqShift: Int by delegateMaskedInt(0b11110000, 4)
@@ -225,7 +230,7 @@ class Ch4PolyCounterRegister(engine: GameEngine) : BitwiseRegister() {
 
     override fun write(addr: Int, vararg values: Byte, start: Int, length: Int, direct: Boolean) {
         super.write(addr, *values, start = start, length = length, direct = direct)
-        generator.period = dividingRatio * (2 shl freqShift)
+        generator.period = DIVIDERS[dividingRatio] shl freqShift
         generator.mode7Bit = lfsr7BitMode
     }
 

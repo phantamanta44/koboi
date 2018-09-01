@@ -32,6 +32,8 @@ object KoboiConfig {
 
     var blarggMode: Boolean by Delegates.notNull()
 
+    var ram: String by Delegates.notNull()
+
     fun <T>set(prop: KProperty1<KoboiConfig, T>, value: T) {
         (prop as KMutableProperty1<KoboiConfig, T>).set(this, value)
     }
@@ -74,6 +76,8 @@ class ParsedArgs(parser: ArgParser) {
     val logTimer: Boolean by parser.flagging("--log-timer", "-C", help = "Log timer at the TRACE level")
 
     val blarggMode: Boolean by parser.flagging("--blargg", help = "Enable output from serial IO ports")
+
+    val ram: String by parser.storing("--ram", "-r", help = "RAM file").default { "$rom.ram" }
 
     val rom: String by parser.positional("ROM", help = "Path to a ROM image of a game cartridge")
 

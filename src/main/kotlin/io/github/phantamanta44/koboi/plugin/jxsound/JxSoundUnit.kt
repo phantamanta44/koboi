@@ -5,6 +5,7 @@ import io.github.phantamanta44.koboi.audio.ILfsrAudioGenerator
 import io.github.phantamanta44.koboi.audio.ISquareAudioGenerator
 import io.github.phantamanta44.koboi.audio.IWavePatternAudioGenerator
 import io.github.phantamanta44.koboi.util.PropDel
+import java.util.concurrent.locks.ReentrantLock
 
 interface IJxAudioProducer : IAudioGenerator {
 
@@ -73,22 +74,51 @@ class SquareWaveProducer : JxFreqAudioProducer(), ISquareAudioGenerator {
 
 }
 
-class ArbitraryWaveAudioProducer : IJxAudioProducer, IWavePatternAudioGenerator { // TODO this could be more sound
+class ArbitraryWaveAudioProducer : JxFreqAudioProducer(), IWavePatternAudioGenerator {
 
+    override val counterBoundary: Int by PropDel.r(::period)
+
+    override var period: Int = 0
     override var activeByte: Int = 0
-    override var highNibble: Boolean = true
-
-    override fun cycle(): Byte {
-        val sample = if (highNibble) {
-            (waveform[activeByte].toInt() and 0xF0) ushr 4
-        } else {
-            waveform[activeByte].toInt() and 0x0F
+    override var highNibble: Boolean by PropDel.observe(true) {
+        bufLock.lockInterruptibly()
+        try {
+            if (bufferPointer < buffer.size) {
+                val sample = if (it) {
+                    (waveform[activeByte].toInt() and 0xF0) ushr 4
+                } else {
+                    waveform[activeByte].toInt() and 0x0F
+                }
+                buffer[bufferPointer] = Math.round((255F * sample / 15F) - 128F).toByte()
+                ++bufferPointer
+            }
+        } finally {
+            bufLock.unlock()
         }
-        return Math.round((255F * sample / 15F) - 128F).toByte()
+    }
+
+    private val buffer: ByteArray = ByteArray(32)
+    private var bufferPointer: Int = 0
+    private var playbackPointer: Int = 0
+    private val bufLock: ReentrantLock = ReentrantLock(true)
+
+    override fun generate(clock: Boolean): Byte {
+        bufLock.lockInterruptibly()
+        try {
+            return buffer[playbackPointer].also { if (clock) playbackPointer = (playbackPointer + 1) % buffer.size }
+        } finally {
+            bufLock.unlock()
+        }
     }
 
     override fun resetSound() {
-        // NO-OP
+        bufLock.lockInterruptibly()
+        try {
+            bufferPointer = 0
+            playbackPointer = 0
+        } finally {
+            bufLock.unlock()
+        }
     }
 
     override val waveform: ByteArray = ByteArray(16)
@@ -101,7 +131,7 @@ class NoiseAudioProducer : JxFreqAudioProducer(), ILfsrAudioGenerator {
     override var period: Int = 1
     override var mode7Bit: Boolean = false
 
-    private var state: Int = 0x7F
+    private var state: Int = 0x7FFF
 
     override fun generate(clock: Boolean): Byte {
         if (clock) {
@@ -109,12 +139,7 @@ class NoiseAudioProducer : JxFreqAudioProducer(), ILfsrAudioGenerator {
             state = (state ushr 1) or (newBit shl 14)
             if (mode7Bit) state = state or (newBit shl 6)
         }
-        return if (state and 0 == 0) 127 else -128
-    }
-
-    override fun resetSound() {
-        super.resetSound()
-        state = 0x7F
+        return if (state and 1 == 0) 127 else -128
     }
 
 }

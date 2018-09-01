@@ -40,7 +40,7 @@ interface ISquareAudioGenerator : IFrequencyAudioGenerator {
 
 }
 
-interface IWavePatternAudioGenerator : IAudioGenerator {
+interface IWavePatternAudioGenerator : IFrequencyAudioGenerator {
 
     val waveform: ByteArray
 

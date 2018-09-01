@@ -120,7 +120,9 @@ class AudioManager(val audio: IAudioInterface,
     }
 
     fun c3UpdateFrequency() {
-        c3WaveIndexer.period = 2048 - (mC3FreqLo.value.toUnsignedInt() or (mC3FreqHi.freqBits shl 8))
+        val period = 2048 - (mC3FreqLo.value.toUnsignedInt() or (mC3FreqHi.freqBits shl 8))
+        c3WaveIndexer.period = period
+        audio.channel3.generator.period = period
     }
 
     fun c1RestartSound() {

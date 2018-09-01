@@ -1,5 +1,6 @@
 package io.github.phantamanta44.koboi.memory
 
+import io.github.phantamanta44.koboi.KoboiConfig
 import io.github.phantamanta44.koboi.util.PropDel
 import io.github.phantamanta44.koboi.util.toShortHex
 import io.github.phantamanta44.koboi.util.toUnsignedInt
@@ -58,7 +59,7 @@ class MbcRomOnly(rom: ByteArray) : IMemoryBankController {
 
     override val romArea: DirectObservableMemoryArea = StaticRomArea(rom, 0, 32768)
 
-    override val ramArea: DirectObservableMemoryArea = SimpleMemoryArea(8192)
+    override val ramArea: DirectObservableMemoryArea = PersistentMemoryArea(8192, 0, KoboiConfig.ram)
 
 }
 
@@ -72,7 +73,7 @@ class Mbc1(rom: ByteArray) : IMemoryBankController {
         }
     }
 
-    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(4, 0) { SimpleMemoryArea(8192) }
+    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(4, 0) { PersistentMemoryArea(8192, it * 8192, KoboiConfig.ram) }
 
     override val ramArea: ToggleableMemoryArea = ToggleableMemoryArea(ramCtrl.memoryArea, false)
 
@@ -127,7 +128,7 @@ class Mbc5(rom: ByteArray) : IMemoryBankController {
 
     private val romCtrl: MemoryBankSwitcher = MemoryBankSwitcher(512, 1) { StaticRomArea(rom, 16384 * it, 16384) }
 
-    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(16, 0) { SimpleMemoryArea(8192) }
+    private val ramCtrl: MemoryBankSwitcher = MemoryBankSwitcher(16, 0) { PersistentMemoryArea(8192, it * 8192, KoboiConfig.ram) }
 
     override val ramArea: ToggleableMemoryArea = ToggleableMemoryArea(ramCtrl.memoryArea, false)
 
