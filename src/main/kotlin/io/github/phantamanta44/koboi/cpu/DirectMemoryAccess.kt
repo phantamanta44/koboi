@@ -24,7 +24,7 @@ class DmaTransferHandler(private val gameEngine: GameEngine) {
         if (mode == DmaTransferMode.VRAM_ATOMIC) {
             gameEngine.memory.write(destAddr, gameEngine.memory.readLength(srcAddr, length))
         } else {
-            transfer = DmaTransfer(mode, srcAddr, length, destAddr)
+            transfer = DmaTransfer(mode, mode.transformSrcAddr(srcAddr), length, destAddr)
         }
     }
 
@@ -55,7 +55,7 @@ class DmaTransferHandler(private val gameEngine: GameEngine) {
 
 }
 
-enum class DmaTransferMode(val getTransferLength: (GameEngine, Int, Long) -> Int) {
+enum class DmaTransferMode(val getTransferLength: (GameEngine, Int, Long) -> Int, val transformSrcAddr: (Int) -> Int = { it }) {
 
     VRAM_ATOMIC({ _, _, _ ->
         throw IllegalStateException()
@@ -68,7 +68,7 @@ enum class DmaTransferMode(val getTransferLength: (GameEngine, Int, Long) -> Int
         } else {
             0
         }
-    }),
+    }, { if (it < 0xE000) it else (it - 0x2000) }),
     VRAM_H_BLANK({ engine, length, _ ->
         if (engine.ppu.dmaHBlankFrame) Math.min(0x10, length) else 0
     })

@@ -91,7 +91,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         val memLyCompare = SingleByteMemoryArea() // FF45 scan line comparison
         // TODO maybe verify dma addresses? but that would be slow
         dma = DmaTransferHandler(this)
-        val memDmaOam = ControlMemoryArea(1) { // FF46 oam dma
+        val memDmaOam = ObservableRegister { // FF46 oam dma
             dma.performDmaTransfer(DmaTransferMode.OAM, it.toUnsignedInt() shl 8, 160, 0xFE00)
         }
         val memMonoPaletteBg = MonoPaletteRegister() // FF47 monochrome background palette
@@ -100,7 +100,7 @@ class GameEngine(rom: ByteArray) : IDirectMemoryObserver {
         val memWindowPosition = SimpleMemoryArea(2) // FF4A-FF4B window y, (x-7)
         val memDmaVramAddresses = SimpleMemoryArea(4) // FF51-FF54 vram dma source, destination
         val dmaVramTriggerBacking = BitwiseRegister()
-        val memDmaVramTrigger = DisjointMemoryArea(dmaVramTriggerBacking, ControlMemoryArea(1) { // FF55 vram dma trigger
+        val memDmaVramTrigger = DisjointMemoryArea(dmaVramTriggerBacking, ObservableRegister { // FF55 vram dma trigger
             if (dma.isDmaTransferActive() && it.toInt() and 0x80 == 0) {
                 dma.cancelTransfer()
             } else {

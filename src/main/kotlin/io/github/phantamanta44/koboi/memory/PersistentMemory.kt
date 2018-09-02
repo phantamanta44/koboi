@@ -1,9 +1,8 @@
 package io.github.phantamanta44.koboi.memory
 
-import io.github.phantamanta44.koboi.Loggr
 import java.io.RandomAccessFile
 
-class PersistentMemoryArea(length: Int, private var offset: Int = 0, private val fileName: String? = null) : SimpleMemoryArea(length) {
+class PersistentMemoryArea(length: Int, private var offset: Int = 0, fileName: String? = null) : SimpleMemoryArea(length) {
 
     private val file: RandomAccessFile? = fileName?.let { RandomAccessFile(it, "rw") }
 

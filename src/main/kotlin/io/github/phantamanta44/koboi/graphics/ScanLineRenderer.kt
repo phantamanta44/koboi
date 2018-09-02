@@ -244,8 +244,7 @@ class GbcRenderer(ctrl: LcdControlRegister, display: IDisplay, cpu: Cpu, vram: M
                                     val colIndex = ((pixLower.toInt() and mask) ushr xShiftFactor) or
                                             (((pixUpper.toInt() and mask) ushr xShiftFactor) shl 1)
                                     if (colIndex != 0) {
-                                        val col = palSprite.getColours(meta and 0b00000111, colIndex)
-                                        writePixel(x, col)
+                                        writePixel(x, palSprite.getColours(meta and 0b00000111, colIndex))
                                     }
                                 }
                             }
